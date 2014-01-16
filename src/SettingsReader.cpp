@@ -6,6 +6,7 @@
  */
 
 #include "SettingsReader.h"
+using namespace boost;
 
 SettingsReader::SettingsReader()
 {
@@ -17,6 +18,7 @@ SettingsReader::SettingsReader()
 	nbLinesSkip=0;
 	calcParameters=NULL;
 	background = 0.0;
+	nbIterations = 0;
 }
 
 SettingsReader::~SettingsReader()
@@ -58,46 +60,48 @@ bool SettingsReader::isComment(std::string& str)
 
 bool SettingsReader::readSettings(std::string filename)
 {
-	inpFileName=filename;
-	LOG(logINFO)<<"Reading settings..."<<inpFileName;
+	inpFileName = filename;
+	std::cout << "Reading settings..." << inpFileName << std::endl;
 
 	std::string dataFileExt;
-	std::string dataDir;
-	std::string layerPropsFile;
+	filesystem::path dataDir;
+	filesystem::path layerPropsFile;
 	try
 	{
 		ConfigFile config(inpFileName);
 
-		config.readInto<std::string>(dataDir, "dataDirectory", "data");
-		LOG(logINFO)<<"Data directory: \t"<<dataDir;
-		dataDir="./"+dataDir+"/";
+		/*directory with data to fit*/
+		config.readInto<filesystem::path>(dataDir, "dataDirectory", "data");
+		std::cout<<"Data directory: \t"<<dataDir << std::endl;
 
-		config.readInto<std::string>(workDir, "workDirectory", "work");
-		LOG(logINFO)<<"Working directory: \t"<<workDir;
-		workDir="./"+workDir+"/";
+		/*output directory*/
+		config.readInto<filesystem::path>(workDir, "workDirectory", "work");
+		std::cout<<"Working directory: \t"<<workDir << std::endl;
 
-		reflectionsFile=workDir+"reflections.dat";
-		parametersFile=workDir+"parameters.dat";;
-		errorsFile=workDir+"errors.dat";
+		reflectionsFile = workDir / "reflections.dat";
+		parametersFile = workDir / "parameters.dat";
+		errorsFile = workDir / "errors.dat";
 
-		config.readInto<std::string>(layerPropsFile, "layerProperties", "default.prop");
-		LOG(logINFO)<<"Layer stack properties: \t"<<layerPropsFile;
-		layerPropsFile=workDir+layerPropsFile;
+		config.readInto<filesystem::path>(layerPropsFile, "layerProperties",
+				"default.prop");
+		std::cout << "Layer stack properties: \t" << layerPropsFile << std::endl;
+		layerPropsFile = workDir / layerPropsFile;
 
 		config.readInto<std::string>(dataFileExt, "dataFileExtension", "csv");
-		LOG(logINFO)<<"Data file extension: \t"<<dataFileExt;
+		std::cout<<"Data file extension: \t"<<dataFileExt << std::endl;
 
 		config.readInto<double>(background, "background", 0.0);
-		LOG(logINFO) << "Background level : "<<background;
+		std::cout << "Background level : "<<background<< std::endl;
 
 		config.readInto<double>(nu, "nu", 1.0/3);
-		LOG(logINFO) << "Poisson ratio : "<<nu;
+		std::cout << "Poisson ratio : "<<nu << std::endl;
 
 		config.readInto<size_t>(nbLinesSkip, "nbSkip", 0.0);
-		LOG(logINFO) << "Skip every : "<<nbLinesSkip<<" datapoint";
+		std::cout << "Skip every : "<<nbLinesSkip<<" datapoint" << std::endl;
 
 		config.readInto<size_t>(nbIterations, "nbIterations", 10);
-		LOG(logINFO) << "Perform  : "<<nbIterations<<" iterations";
+		std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
+				<< std::endl;
 
 	}
 	catch(ConfigFile::file_not_found& e )
@@ -118,9 +122,9 @@ bool SettingsReader::readSettings(std::string filename)
 	return true;
 }
 
-bool SettingsReader::readStack(const std::string& filename)
+bool SettingsReader::readStack(const filesystem::path& filename)
 {
-	LOG(logINFO)<<"Reading layer stack parameters...";
+	std::cout<<"Reading layer stack parameters..." << std::endl;
 	std::ifstream fin(filename.c_str());
 	if(!fin)
 	{
@@ -139,9 +143,12 @@ bool SettingsReader::readStack(const std::string& filename)
 			nbLayers++;
 	}
 	fin.close();
-	LOG(logINFO)<<"Layer stack consists of "<<nbLayers<<" layers";
-	LOG(logINFO)<<"It is characterized by "<<layerParameterIndices.size()<<" parameters";
-	LOG(logINFO)<<fitParameters.size()<<" of them are fit parameters";
+	std::cout << "Layer stack consists of " << nbLayers << " layers"
+			<< std::endl;
+	std::cout << "It is characterized by " << layerParameterIndices.size()
+			<< " parameters" << std::endl;
+	std::cout << fitParameters.size() << " of them are fit parameters"
+			<< std::endl;
 	return true;
 }
 
@@ -230,7 +237,7 @@ int SettingsReader::registerReflection(std::string str)
 		double Q0ylab = 1.0 / sqrt(2.0) * (-thisReflection.Qxcub + thisReflection.Qycub);
 		double Q0zlab = thisReflection.Qzcub;
 
-		LOG(logINFO)<<"Q0lab: "<<Q0xlab<<"\t"<<Q0zlab;
+		std::cout<<"Q0lab: "<<Q0xlab<<"\t"<<Q0zlab << std::endl;
 
 		if (Q0ylab != 0)
 		{
@@ -315,7 +322,7 @@ bool SettingsReader::setupSQFs(const std::string& str, Reflection& reflection)
 
 bool SettingsReader::saveReflections()
 {
-	LOG(logINFO)<<"Saving reflections...";
+	std::cout<<"Saving reflections..." << std::endl;
 	std::ofstream fout(reflectionsFile.c_str());
 	if(!fout.is_open()) return false;
 	for(size_t irefl = 0; irefl < reflParameters.size(); irefl++)
@@ -337,31 +344,34 @@ bool SettingsReader::saveReflections()
 
 bool SettingsReader::saveParameters()
 {
-	LOG(logINFO)<<"Saving parameters...";
+	std::cout<<"Saving parameters..." << std::endl;
 	std::ofstream fout(parametersFile.c_str());
 	if(!fout.is_open()) return false;
 
 	time_t tt;
 	time(&tt);
 	fout<<"#"<<ctime(&tt);
-	fout<<"#d\trho0\tk/60-deg\tsign\tg1\tg2\tQccz\n";
+	fout<<"#d\trho0\tk/60-deg\tsign\tg1\tg2\tQccz" << std::endl;
 	for(size_t ilayer = 0; ilayer < nbLayers; ilayer++)
 	{
-		for(size_t iparam = 0; iparam < idxNB; iparam++)
-			fout<<allParameters.at(layerParameterIndices.at(iparam+idxNB*ilayer))<<"\t";
-		fout<<"\n";
+		for (size_t iparam = 0; iparam < idxNB; iparam++)
+			fout
+					<< allParameters.at(
+							layerParameterIndices.at(iparam + idxNB * ilayer))
+					<< "\t";
+		fout << std::endl;
 	}
 	fout.close();
 	return true;
 }
 
-bool SettingsReader::readDataFile(const std::string& filename, DataFileProperty & dfp)
+bool SettingsReader::readDataFile(const boost::filesystem::path& filename, DataFileProperty & dfp)
 {
-	LOG(logINFO)<<"File"<<filename<< " is being read...";
+	std::cout<<"File "<< filename << " is being read..." << std::endl;
 	std::ifstream fin(filename.c_str());
 	if(!fin)
 	{
-		LOG(logERROR)<<"File is not found: "<<filename;
+		std::cerr << "File is not found: " << filename;
 		return false;
 	}
 	dfp.filename=filename;
@@ -384,7 +394,7 @@ bool SettingsReader::readDataFile(const std::string& filename, DataFileProperty 
 	}
 	if(reflIndex<0)
 	{
-		LOG(logWARNING)<<"Check reflection in the file: "<<filename;
+		LOG(logWARNING)<<"Check reflection in the file:\t"<<filename;
 		return false;
 	}
 	dfp.reflIndex=reflIndex;
@@ -412,51 +422,58 @@ bool SettingsReader::readDataFile(const std::string& filename, DataFileProperty 
 	fin.close();
 	dfp.nbPoints=nbPointsRead;
 
-	LOG(logINFO)<<"Nb of Points to read:\t"<<nbPointsToRead;
-	LOG(logINFO)<<"Nb of Points read "<<nbPointsRead;
-	LOG(logINFO)<<"Total nbPoints "<<dataPoints.size();
+	std::cout << "Nb of Points to read:\t" << nbPointsToRead << std::endl;
+	std::cout << "Nb of Points read " << nbPointsRead << std::endl;
+	std::cout << "Total nbPoints " << dataPoints.size() << std::endl;
 	return true;
 }
 
-bool SettingsReader::readDataFiles(const std::string& dirname, const std::string& ext)
+bool SettingsReader::readDataFiles(const boost::filesystem::path& dirname, const std::string& ext)
 {
-	LOG(logINFO)<<"Reading data files...";
+	std::cout<<"Reading data files...";
 	std::vector<std::string> files = std::vector<std::string>();
-	std::string dir = dirname;// current directory
 
-	DIR *dp;
-	unsigned char isFile=0x8;
-	struct dirent *dirp;
-	if((dp = opendir(dir.c_str())) == NULL)
+	filesystem::path path(dirname);
+	try
 	{
-		LOG(logERROR) << "Error opening directory: " << dir;
-		return false;
-	}
-
-	while ((dirp = readdir(dp)) != NULL)
-	{
-		if(dirp->d_type != isFile)
-			continue;
-		std::string filename=dirp->d_name;
-		std::string filenameext=stripExtension(filename);
-
-		if(filenameext.compare(ext)!=0) continue;
-
-		DataFileProperty fileContent;
-		if(!readDataFile(dirname+filename+"."+ext, fileContent))
+		if ( filesystem::is_directory( path ) )
 		{
-			LOG(logWARNING)<<"File is empty or erroneous: "<<filename;
+			filesystem::directory_iterator end_iter;
+			for (filesystem::directory_iterator dir_itr(path);
+					dir_itr != end_iter; ++dir_itr)
+			{
+				if (filesystem::is_regular_file(dir_itr->status()))
+				{
+					filesystem::path filename = dir_itr->path();
+					std::string extention = dir_itr->path().extension().c_str();
+
+					if(extention.compare("." + ext) == 0)
+					{
+						DataFileProperty fileContent;
+						if(readDataFile(filename, fileContent))
+						{
+							dataFileProperties.push_back(fileContent);
+						}
+						else
+							std::cout << "File is empty or erroneous: " << dir_itr->path().filename();
+					}
+
+				}
+			}
 		}
 		else
 		{
-			dataFileProperties.push_back(fileContent);
+			std::cout << "Error opening directory:\t" << path;
+			return false;
 		}
-
+	} catch(const std::exception & ex)
+	{
+		std::cout << path.c_str() << " " << ex.what() << std::endl;
 	}
-	closedir(dp);
 
-	LOG(logINFO)<<"Nb of Files read "<<dataFileProperties.size();
-	if(!dataPoints.size()) return false;
+	std::cout << "Nb files read\t" << dataFileProperties.size() << std::endl;
+	if (!dataPoints.size())
+		return false;
 	return true;
 }
 
@@ -528,29 +545,30 @@ void SettingsReader::saveFitData(const double * f, std::string suffix)
 {
 	if(f)
 	{
-		LOG(logINFO) << "Writing the fitted data...";
+		std::cout << "Writing the fitted data..." << std::endl;
 
-		std::string filename;
+		filesystem::path outfile;
 		size_t ipoint=0;
 		for (size_t ifile = 0;ifile < dataFileProperties.size();ifile++)
 		{
-			filename=dataFileProperties.at(ifile).filename;
-			//stripPath(filename);
-			stripExtension(filename);
-			filename=workDir+filename+"_"+suffix+".out";
+			/*trim old extension*/
+			outfile = workDir / dataFileProperties.at(ifile).filename.stem();
+			/*add new suffix and extention*/
+			outfile = filesystem::path(outfile.native() + "_" + suffix + ".out");
 
-			LOG(logINFO) << "\t...to "<<filename;
+			std::cout << "\t...to " << outfile << std::endl;
 
 			double qx, qz;
 			double qper, qpar;
-			double Qx=reflParameters.at(dataFileProperties.at(ifile).reflIndex).Qxlab;
-			double Qz=reflParameters.at(dataFileProperties.at(ifile).reflIndex).Qzlab;;
+			//double Qx=reflParameters.at(dataFileProperties.at(ifile).reflIndex).Qxlab;
+			//double Qz=reflParameters.at(dataFileProperties.at(ifile).reflIndex).Qzlab;;
 			double nperx=reflParameters.at(dataFileProperties.at(ifile).reflIndex).nperx;
 			double nperz=reflParameters.at(dataFileProperties.at(ifile).reflIndex).nperz;
 			double nparx=reflParameters.at(dataFileProperties.at(ifile).reflIndex).nparx;
 			double nparz=reflParameters.at(dataFileProperties.at(ifile).reflIndex).nparz;
 
-			std::ofstream fout(filename.c_str());
+			std::ofstream fout(outfile.c_str());
+			fout << "#qper\tqpar\tqx\tqz\tI_init\tI_fin" << std::endl;
 			for(size_t ipt=0;ipt<dataFileProperties.at(ifile).nbPoints; ipt++)
 			{
 				qx=(dataPoints.at(ipoint).qx/(2*M_PI)/*+Qx*/)/aSub;

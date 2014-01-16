@@ -19,7 +19,8 @@
 #include <cmath>
 #include <cstdlib>
 
-#include <dirent.h>
+#include <boost/filesystem.hpp>
+//#include <dirent.h>
 
 #include <Log.h>
 #include <StringTools.h>
@@ -54,7 +55,8 @@ public:
 	//content of the data file
 	typedef struct
 	{
-		std::string filename;//name of the file
+		/*which file the data is read from*/
+		boost::filesystem::path filename;
 		size_t reflIndex;
 		size_t nbPoints;
 	} DataFileProperty;
@@ -84,7 +86,7 @@ private:
 	//content of the layer properties file
 	enum {idxCOORD,idxRHO0,idxK,idxSIGN,idxG1, idxG2,idxQCCZ,idxNB};
 	std::string inpFileName;
-	std::string workDir;
+	boost::filesystem::path workDir;
 	//content of the inp file
 	size_t nbIterations;//how may iterations to perform before break
 	size_t nbLinesSkip;//how many datapoints to skip in the dataFile
@@ -101,9 +103,9 @@ private:
 	std::vector<size_t> layerParameterIndices;//in allParameters vector
 	std::vector<DataPoint> dataPoints;
 	std::vector<DataFileProperty> dataFileProperties;
-	bool readStack(const std::string& filename);
-	bool readDataFiles(const std::string& dirname, const std::string& ext);
-	bool readDataFile(const std::string& filename, DataFileProperty & dfp);
+	bool readStack(const boost::filesystem::path& filename);
+	bool readDataFiles(const boost::filesystem::path& dirname, const std::string& ext);
+	bool readDataFile(const boost::filesystem::path& filename, DataFileProperty & dfp);
 	bool isComment(std::string& str);
 	bool parseLine(std::string & str);
 	void parseParameter(char * str, std::vector<std::string>& params);
@@ -112,9 +114,9 @@ private:
 	bool saveReflections();//saves the reflection array into a file
 	bool saveParameters();//saves the parameters array into a file
 	bool setupSQFs(const std::string&, Reflection& );
-	std::string reflectionsFile;
-	std::string parametersFile;
-	std::string errorsFile;
+	boost::filesystem::path reflectionsFile;
+	boost::filesystem::path parametersFile;
+	boost::filesystem::path errorsFile;
 private:
 	std::map<std::string, size_t> reflParametersIndices;//TODO this should be finally removed as ineffective
 private:
