@@ -15,12 +15,10 @@
 #include <map>
 #include <fstream>
 #include <string>
-#include <cstring>
 #include <cmath>
 #include <cstdlib>
 
 #include <boost/filesystem.hpp>
-//#include <dirent.h>
 
 #include <Log.h>
 #include <StringTools.h>
@@ -28,7 +26,15 @@
 
 class SettingsReader {
 public:
-	typedef double Parameter;
+	struct Parameter
+	{
+		Parameter(): m_name(""), m_value(0.0) {}
+		Parameter(const std::string& name, double value): m_name(name), m_value(value) {}
+		~Parameter() {}
+
+		std::string m_name;
+		double m_value;
+	};
 	typedef struct
 	{
 		size_t parameterIndex;//in the allParameters vector

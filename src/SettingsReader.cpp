@@ -10,13 +10,13 @@ using namespace boost;
 
 SettingsReader::SettingsReader()
 {
-	lambdaX=1.54059;//Cu Kalpha wavelength
-	aSub=5.43043;//Si lattice parameter
+	lambdaX = 1.54059; //Cu Kalpha wavelength
+	aSub = 5.43043; //Si lattice parameter
 	//aSub=1.0;//Si lattice parameter
-	nu=1.0/3;//'standard' Poisson ratio
-	nbLayers=0;
-	nbLinesSkip=0;
-	calcParameters=NULL;
+	nu = 1.0 / 3;	//'standard' Poisson ratio
+	nbLayers = 0;
+	nbLinesSkip = 0;
+	calcParameters = NULL;
 	background = 0.0;
 	nbIterations = 0;
 }
@@ -192,10 +192,13 @@ void SettingsReader::parseParameter(char * str, std::vector<std::string>& params
 void SettingsReader::registerParameter(std::vector<std::string>& params)
 {
 	FitParameter fitParameter;
+	Parameter parameter;
 	if (params.size() == 1)
 	{
 		layerParameterIndices.push_back(allParameters.size());
-		allParameters.push_back(atof(params[0].c_str()));
+		parameter.m_name = "";
+		parameter.m_value = atof(params[0].c_str());
+		allParameters.push_back(parameter);
 	}
 	else
 	{
@@ -206,7 +209,9 @@ void SettingsReader::registerParameter(std::vector<std::string>& params)
 		fitParameter.upValue=atof(params[2].c_str());
 		fitParameters.push_back(fitParameter);
 
-		allParameters.push_back(atof(params[0].c_str()));
+		parameter.m_name = "";
+		parameter.m_value = atof(params[0].c_str());
+		allParameters.push_back(parameter);
 	}
 }
 
@@ -275,7 +280,9 @@ bool SettingsReader::setupSQFs(const std::string& str, Reflection& reflection)
 	for (size_t ilayer = 0; ilayer < nbLayers; ilayer++)
 	{
 		reflection.sqfsIndices.at(ilayer)=allParameters.size();
-		allParameters.push_back(1.0);
+		allParameters.push_back(
+				Parameter("", 1.0)
+				);
 
 		//sqf default value
 		fitParameter.lowValue=1e-15;
@@ -284,9 +291,13 @@ bool SettingsReader::setupSQFs(const std::string& str, Reflection& reflection)
 		fitParameters.push_back(fitParameter);
 
 		reflection.dQxIndices.at(ilayer)=allParameters.size();
-		allParameters.push_back(0.0);//dQx default value
+		allParameters.push_back(
+				Parameter("", 0.0)
+				);//dQx default value
 		reflection.dQzIndices.at(ilayer)=allParameters.size();
-		allParameters.push_back(0.0);//dQz default value
+		allParameters.push_back(
+				Parameter("", 0.0)
+				);//dQz default value
 	}
 	if(!fin.is_open())	return false;
 	std::string line;
@@ -310,9 +321,9 @@ bool SettingsReader::setupSQFs(const std::string& str, Reflection& reflection)
 			sqf=atof(params[4].c_str());
 			dQx=atof(params[5].c_str());
 			dQz=atof(params[6].c_str());
-			allParameters.at(reflection.sqfsIndices.at(ilayer))=sqf;
-			allParameters.at(reflection.dQxIndices.at(ilayer))=dQx;
-			allParameters.at(reflection.dQzIndices.at(ilayer))=dQz;
+			allParameters.at(reflection.sqfsIndices.at(ilayer)).m_value = sqf;
+			allParameters.at(reflection.dQxIndices.at(ilayer)).m_value = dQx;
+			allParameters.at(reflection.dQzIndices.at(ilayer)).m_value = dQz;
 		}
 		params.clear();
 	}
@@ -333,9 +344,9 @@ bool SettingsReader::saveReflections()
 				<<reflParameters.at(irefl).Qycub<<":"
 				<<reflParameters.at(irefl).Qzcub<<":"
 				<<ilayer<<":"
-				<<allParameters.at(reflParameters.at(irefl).sqfsIndices.at(ilayer))<<":"
-				<<allParameters.at(reflParameters.at(irefl).dQxIndices.at(ilayer))<<":"
-				<<allParameters.at(reflParameters.at(irefl).dQzIndices.at(ilayer))<<"\n";
+				<<allParameters.at(reflParameters.at(irefl).sqfsIndices.at(ilayer)).m_value<<":"
+				<<allParameters.at(reflParameters.at(irefl).dQxIndices.at(ilayer)).m_value<<":"
+				<<allParameters.at(reflParameters.at(irefl).dQzIndices.at(ilayer)).m_value<<"\n";
 		}
 	}
 	fout.close();
@@ -357,7 +368,7 @@ bool SettingsReader::saveParameters()
 		for (size_t iparam = 0; iparam < idxNB; iparam++)
 			fout
 					<< allParameters.at(
-							layerParameterIndices.at(iparam + idxNB * ilayer))
+							layerParameterIndices.at(iparam + idxNB * ilayer)).m_value
 					<< "\t";
 		fout << std::endl;
 	}
@@ -480,7 +491,7 @@ bool SettingsReader::readDataFiles(const boost::filesystem::path& dirname, const
 void SettingsReader::initializeFitParameters(double * x) const
 {
 	for(size_t i=0;i<fitParameters.size();i++)
-		x[i]=allParameters.at(fitParameters.at(i).parameterIndex);
+		x[i] = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
 }
 
 void SettingsReader::initializeFitData(double * f) const
@@ -501,7 +512,7 @@ void SettingsReader::initializeFitParametersBounds(double * lb, double * ub) con
 void SettingsReader::resetFitParameters(const double * x)
 {
 	for(size_t i=0;i<fitParameters.size();i++)
-		allParameters.at(fitParameters.at(i).parameterIndex)=x[i];
+		allParameters.at(fitParameters.at(i).parameterIndex).m_value = x[i];
 	resetCalcParameters();
 }
 
@@ -525,17 +536,17 @@ void SettingsReader::resetCalcParameters()
 			{
 				calcParameters[irefl][iparam + (idxNB + 3) * ilayer]
 						= allParameters.at(layerParameterIndices.at(iparam
-								+ idxNB * ilayer));
+								+ idxNB * ilayer)).m_value;
 			}
 			calcParameters[irefl][idxNB + 0 + (idxNB + 3) * ilayer]
 					= allParameters.at(reflParameters.at(irefl).sqfsIndices.at(
-							ilayer));
+							ilayer)).m_value;
 			calcParameters[irefl][idxNB + 1 + (idxNB + 3) * ilayer]
 					= allParameters.at(reflParameters.at(irefl).dQxIndices.at(
-							ilayer));
+							ilayer)).m_value;
 			calcParameters[irefl][idxNB + 2 + (idxNB + 3) * ilayer]
 					= allParameters.at(reflParameters.at(irefl).dQzIndices.at(
-							ilayer));
+							ilayer)).m_value;
 
 		}
 	}
@@ -589,13 +600,12 @@ void SettingsReader::saveFitParameters(const double * x, const double * c)
 {
 	std::ofstream fout(errorsFile.c_str());
 	resetFitParameters(x);
-	fout<<"#iparam\tidx\tvalue+/-error"<<std::endl;
-	for(size_t iparam=0;iparam<getNbFitParameters();iparam++)
-		fout<<iparam<<"\t"<<fitParameters.at(iparam).parameterIndex
-						<<"\t"
-						<<allParameters.at((fitParameters.at(iparam).parameterIndex))
-						<<"\t+/-\t"
-						<<sqrt(c[iparam+iparam*getNbFitParameters()])
-						<<std::endl;
+	fout << "#iparam\tidx\tvalue+/-error" << std::endl;
+	for (size_t iparam = 0; iparam < getNbFitParameters(); iparam++)
+		fout << iparam << "\t" << fitParameters.at(iparam).parameterIndex
+				<< "\t"
+				<< allParameters.at((fitParameters.at(iparam).parameterIndex)).m_value
+				<< "\t+/-\t" << sqrt(c[iparam + iparam * getNbFitParameters()])
+				<< std::endl;
 	fout.close();
 }

@@ -44,40 +44,34 @@ int main()
 					settings.getNbFitParameters(),
 					&settings);
 	settings.saveFitData(f, "i");
-	settings.initializeFitData(f);
 
-	double opts[LM_OPTS_SZ], info[LM_INFO_SZ];
-	opts[0]=LM_INIT_MU; opts[1]=1E-15; opts[2]=1E-15; opts[3]=1E-4;
-	opts[4]=LM_DIFF_DELTA; // relevant only if the finite difference Jacobian version is used
-	double covar[settings.getNbFitParameters()*settings.getNbFitParameters()];
-
-	dlevmar_bc_dif(modelFunction,
-			x,
-			f,
-			settings.getNbFitParameters(),
-			settings.getNbDataPoints(),
-			xlb,
-			xub,
-			NULL, //no scaling
-			settings.getNbIterations(),
-			opts,
-			info,
-			NULL,
-			covar,
-			(void *)&settings);
-	printInfo(info);
-
-	if(settings.getNbIterations()>0)
+	if (settings.getNbIterations() > 0)
 	{
-		modelFunction(x, f,
-				settings.getNbDataPoints(),
-				settings.getNbFitParameters(),
-				&settings);
+		settings.initializeFitData(f);
+
+		double opts[LM_OPTS_SZ], info[LM_INFO_SZ];
+		opts[0] = LM_INIT_MU;
+		opts[1] = 1E-15;
+		opts[2] = 1E-15;
+		opts[3] = 1E-4;
+		opts[4] = LM_DIFF_DELTA; // relevant only if the finite difference Jacobian version is used
+		double covar[settings.getNbFitParameters()
+				* settings.getNbFitParameters()];
+
+		dlevmar_bc_dif(modelFunction, x, f, settings.getNbFitParameters(),
+				settings.getNbDataPoints(), xlb, xub,
+				NULL, //no scaling
+				settings.getNbIterations(), opts, info, NULL, covar,
+				(void *) &settings);
+		printInfo(info);
+
+		modelFunction(x, f, settings.getNbDataPoints(),
+				settings.getNbFitParameters(), &settings);
 		settings.saveFitParameters(x, covar);
 		settings.saveFitData(f, "f");
 	}
 	LOG(logRTIME);
-	LOG(logINFO)<<"End.";
+	LOG(logINFO) << "End.";
 	return 0;
 }
 
