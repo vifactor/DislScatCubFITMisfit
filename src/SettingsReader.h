@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdlib>
 
+#include <libconfig.h++>
 #include <boost/filesystem.hpp>
 
 #include <Log.h>

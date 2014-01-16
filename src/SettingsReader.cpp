@@ -71,8 +71,9 @@ bool SettingsReader::readSettings(std::string filename)
 		ConfigFile config(inpFileName);
 
 		/*directory with data to fit*/
+		m_sampleSettings.a0 = sample["a0"];
 		config.readInto<filesystem::path>(dataDir, "dataDirectory", "data");
-		std::cout<<"Data directory: \t"<<dataDir << std::endl;
+		std::cout<<"Data directory: \t"<< dataDir << std::endl;
 
 		/*output directory*/
 		config.readInto<filesystem::path>(workDir, "workDirectory", "work");
