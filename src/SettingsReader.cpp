@@ -71,6 +71,7 @@ bool SettingsReader::readSettings(std::string filename)
 		const libconfig::Setting& root = cfg.getRoot();
 		const libconfig::Setting& sampleCfg = root["Sample"];
 		const libconfig::Setting& engineCfg = root["Engine"];
+		const libconfig::Setting& dataCfg = root["Data"];
 		//const libconfig::Setting& fpsCfg = root["FitParameters"];
 
 		/*directory with data to fit*/
@@ -103,6 +104,7 @@ bool SettingsReader::readSettings(std::string filename)
 
 		//TODO readEngineSettings(engineCfg);
 		readSampleConfig(sampleCfg);
+		readDataConfig(dataCfg);
 		//TODO readFitParameterSettings(fpsCfg);
 	} catch (const libconfig::FileIOException &fioex)
 	{
@@ -125,7 +127,6 @@ bool SettingsReader::readSettings(std::string filename)
 		return false;
 	}
 
-	//readStack(layerPropsFile);
 	readDataFiles(dataDir, dataFileExt);
 	allocateCalcParameters();
 	resetCalcParameters();
@@ -187,6 +188,22 @@ void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
 	else
 		std::cout << std::endl;
 }
+
+void SettingsReader::readDataConfig(const libconfig::Setting& data)
+{
+	/*loop over reflections*/
+	for(int iref = 0; iref < data.getLength(); ++iref)
+	{
+		const libconfig::Setting& reflection = data[iref];
+		registerReflectionSetting(reflection);
+	}
+}
+
+void SettingsReader::registerReflectionSetting(const libconfig::Setting& reflection)
+{
+
+}
+
 
 void SettingsReader::parseParameter(char * str, std::vector<std::string>& params)
 {
@@ -589,6 +606,8 @@ void SettingsReader::saveFitParameters(const double * x, const double * c)
 	fout << "#iparam\tidx\tvalue+/-error" << std::endl;
 	for (size_t iparam = 0; iparam < getNbFitParameters(); iparam++)
 		fout << iparam << "\t" << fitParameters.at(iparam).parameterIndex
+				<< "\t"
+				<< allParameters.at((fitParameters.at(iparam).parameterIndex)).m_name
 				<< "\t"
 				<< allParameters.at((fitParameters.at(iparam).parameterIndex)).m_value
 				<< "\t+/-\t" << sqrt(c[iparam + iparam * getNbFitParameters()])
