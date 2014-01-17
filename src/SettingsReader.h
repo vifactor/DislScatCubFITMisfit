@@ -21,7 +21,6 @@
 #include <libconfig.h++>
 #include <boost/filesystem.hpp>
 
-//#include <Log.h>
 #include <StringTools.h>
 
 class SettingsReader {
@@ -109,13 +108,13 @@ private:
 	std::vector<size_t> layerParameterIndices;//in allParameters vector
 	std::vector<DataPoint> dataPoints;
 	std::vector<DataFileProperty> dataFileProperties;
-	bool readStack(const boost::filesystem::path& filename);
 	bool readDataFiles(const boost::filesystem::path& dirname, const std::string& ext);
 	bool readDataFile(const boost::filesystem::path& filename, DataFileProperty & dfp);
+	void readSampleConfig(const libconfig::Setting& cfg);
+	void registerSampleSetting(const libconfig::Setting& cfg);
+
 	bool isComment(std::string& str);
-	bool parseLine(std::string & str);
 	void parseParameter(char * str, std::vector<std::string>& params);
-	void registerParameter(std::vector<std::string>& params);
 	int registerReflection(std::string);//returns index of the reflection in reflParameters
 	bool saveReflections();//saves the reflection array into a file
 	bool saveParameters();//saves the parameters array into a file

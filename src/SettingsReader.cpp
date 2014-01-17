@@ -62,7 +62,6 @@ bool SettingsReader::readSettings(std::string filename)
 
 	std::string dataFileExt;
 	filesystem::path dataDir;
-	filesystem::path layerPropsFile;
 	libconfig::Config cfg;
 
 	cfg.setAutoConvert(true);
@@ -70,45 +69,41 @@ bool SettingsReader::readSettings(std::string filename)
 	{
 		cfg.readFile(inpFileName.c_str());
 		const libconfig::Setting& root = cfg.getRoot();
-		const libconfig::Setting& sampleStg = root["Sample"];
-		const libconfig::Setting& engineStg = root["Engine"];
-		//const libconfig::Setting& fpsStg = root["FitParameters"];
+		const libconfig::Setting& sampleCfg = root["Sample"];
+		const libconfig::Setting& engineCfg = root["Engine"];
+		//const libconfig::Setting& fpsCfg = root["FitParameters"];
 
 		/*directory with data to fit*/
-		dataDir = engineStg["dataDirectory"].c_str();
+		dataDir = engineCfg["dataDirectory"].c_str();
 		std::cout<<"Data directory: \t"<< dataDir << std::endl;
 
 		/*output directory*/
-		workDir = engineStg["workDirectory"].c_str();
+		workDir = engineCfg["workDirectory"].c_str();
 		std::cout<<"Working directory: \t"<<workDir << std::endl;
 
 		reflectionsFile = workDir / "reflections.dat";
 		parametersFile = workDir / "parameters.dat";
 		errorsFile = workDir / "errors.dat";
 
-		dataFileExt = engineStg["dataFileExtension"].c_str();
+		dataFileExt = engineCfg["dataFileExtension"].c_str();
 		std::cout<<"Data file extension: \t"<<dataFileExt << std::endl;
 
-		layerPropsFile = sampleStg["layerProperties"].c_str();
-		layerPropsFile = workDir / layerPropsFile;
-		std::cout << "Layer stack properties: \t" << layerPropsFile << std::endl;
-
-		background = sampleStg["background"];
+		background = sampleCfg["background"];
 		std::cout << "Background level : "<<background<< std::endl;
 
-		nu = sampleStg["nu"];
+		nu = sampleCfg["nu"];
 		std::cout << "Poisson ratio : "<<nu << std::endl;
 
-		nbLinesSkip = engineStg["nbSkip"];
+		nbLinesSkip = engineCfg["nbSkip"];
 		std::cout << "Skip every : "<<nbLinesSkip<<" datapoint" << std::endl;
 
-		nbIterations = engineStg["nbIterations"];
+		nbIterations = engineCfg["nbIterations"];
 		std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
 				<< std::endl;
 
-		//TODO readSampleSettings(root);
-		//TODO readFitParameterSettings(root);
-		//TODO readEngineSettings(root);
+		//TODO readEngineSettings(engineCfg);
+		readSampleConfig(sampleCfg);
+		//TODO readFitParameterSettings(fpsCfg);
 	} catch (const libconfig::FileIOException &fioex)
 	{
 		std::cerr << fioex.what() << " in\t" << inpFileName << std::endl;
@@ -130,67 +125,67 @@ bool SettingsReader::readSettings(std::string filename)
 		return false;
 	}
 
-	readStack(layerPropsFile);
+	//readStack(layerPropsFile);
 	readDataFiles(dataDir, dataFileExt);
 	allocateCalcParameters();
 	resetCalcParameters();
 	return true;
 }
 
-bool SettingsReader::readStack(const filesystem::path& filename)
+void SettingsReader::readSampleConfig(const libconfig::Setting& sample)
 {
+	const libconfig::Setting& layersCfg = sample["layers"];
+
 	std::cout<<"Reading layer stack parameters..." << std::endl;
-	std::ifstream fin(filename.c_str());
-	if(!fin)
+
+	nbLayers = layersCfg.getLength();
+	for(size_t ilay = 0; ilay < nbLayers; ++ilay)
 	{
-		std::cerr << "File is not found: " << filename << std::endl;
-		return false;
+		registerSampleSetting(layersCfg[ilay]["d"]);
+		registerSampleSetting(layersCfg[ilay]["rho0"]);
+		registerSampleSetting(layersCfg[ilay]["k"]);
+		registerSampleSetting(layersCfg[ilay]["sign"]);
+		registerSampleSetting(layersCfg[ilay]["g1"]);
+		registerSampleSetting(layersCfg[ilay]["g2"]);
+		registerSampleSetting(layersCfg[ilay]["Qccz"]);
 	}
-	std::istringstream is;
-	std::string line;
-	while(!fin.eof())
-	{
-			getline(fin,line);
-			//skip the comment
-			if(isComment(line)) continue;
-			//read all data points;
-			parseLine(line);
-			nbLayers++;
-	}
-	fin.close();
+
 	std::cout << "Layer stack consists of " << nbLayers << " layers"
 			<< std::endl;
 	std::cout << "It is characterized by " << layerParameterIndices.size()
 			<< " parameters" << std::endl;
 	std::cout << fitParameters.size() << " of them are fit parameters"
 			<< std::endl;
-	return true;
+	std::cout << std::endl;
 }
 
-bool SettingsReader::parseLine(std::string & str)
+void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
 {
-	char cstr[str.size()+1];
-	char delims[]=" \n\t\r";
-	char * tok, * saveptr;
-	size_t nbToks=0;
-	std::vector<std::string> params;
+	Parameter param;
+	FitParameter fitParameter;
 
-	strcpy(cstr, str.c_str());
-	for(tok=strtok_r(cstr,delims, &saveptr);tok;tok=strtok_r(NULL,delims, &saveptr))
+	layerParameterIndices.push_back(allParameters.size());
+
+	param.m_name = stg.getPath();
+	if(stg.isList())
 	{
-		parseParameter(tok, params);
-		registerParameter(params);
-		nbToks++;
-		params.clear();
-	}
+		param.m_value = stg[0];
 
-	if(nbToks!=idxNB)
+		fitParameter.parameterIndex = allParameters.size();
+		fitParameter.lowValue = stg[1][0];
+		fitParameter.upValue= stg[1][1];
+		fitParameters.push_back(fitParameter);
+	}
+	else
 	{
-		std::cerr << "Not enough parameters in the string:\n" << str << std::endl;
-		return false;
+		param.m_value = stg;
 	}
-
-	return true;
+	allParameters.push_back(param);
+	std::cout << allParameters.back().m_name << "\t" << allParameters.back().m_value;
+	if((!fitParameters.empty()) && (fitParameters.back().parameterIndex == allParameters.size() - 1))
+		std::cout << "\tfit it!" << std::endl;
+	else
+		std::cout << std::endl;
 }
 
 void SettingsReader::parseParameter(char * str, std::vector<std::string>& params)
@@ -201,32 +196,6 @@ void SettingsReader::parseParameter(char * str, std::vector<std::string>& params
 	for(tok=strtok_r(str,delims, &saveptr);tok;tok=strtok_r(NULL,delims, &saveptr))
 	{
 		params.push_back(tok);
-	}
-}
-
-void SettingsReader::registerParameter(std::vector<std::string>& params)
-{
-	FitParameter fitParameter;
-	Parameter parameter;
-	if (params.size() == 1)
-	{
-		layerParameterIndices.push_back(allParameters.size());
-		parameter.m_name = "";
-		parameter.m_value = atof(params[0].c_str());
-		allParameters.push_back(parameter);
-	}
-	else
-	{
-		layerParameterIndices.push_back(allParameters.size());
-
-		fitParameter.parameterIndex=allParameters.size();
-		fitParameter.lowValue=atof(params[1].c_str());
-		fitParameter.upValue=atof(params[2].c_str());
-		fitParameters.push_back(fitParameter);
-
-		parameter.m_name = "";
-		parameter.m_value = atof(params[0].c_str());
-		allParameters.push_back(parameter);
 	}
 }
 
@@ -458,7 +427,7 @@ bool SettingsReader::readDataFile(const boost::filesystem::path& filename, DataF
 
 bool SettingsReader::readDataFiles(const boost::filesystem::path& dirname, const std::string& ext)
 {
-	std::cout<<"Reading data files...";
+	std::cout<<"Reading data files..." << std::endl;
 	std::vector<std::string> files = std::vector<std::string>();
 
 	filesystem::path path(dirname);
