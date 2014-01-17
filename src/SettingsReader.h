@@ -21,9 +21,8 @@
 #include <libconfig.h++>
 #include <boost/filesystem.hpp>
 
-#include <Log.h>
+//#include <Log.h>
 #include <StringTools.h>
-#include <ConfigFile.h>
 
 class SettingsReader {
 public:
@@ -70,7 +69,7 @@ public:
 public:
 	SettingsReader();
 	virtual ~SettingsReader();
-	bool readSettings(std::string filename="default.inp");
+	bool readSettings(std::string filename="default.cfg");
 	void initializeFitData(double * f) const;
 	void initializeFitParameters(double * x) const;
 	void initializeFitParametersBounds(double * lb, double * ub) const;

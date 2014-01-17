@@ -30,7 +30,6 @@ SettingsReader::~SettingsReader()
 
 void SettingsReader::allocateCalcParameters()
 {
-	LOG(logDEBUG)<<"Allocating calculator parameters";
 	calcParameters=new double*[getNbReflections()];
 	for(size_t irefl=0;irefl<getNbReflections();irefl++)
 	{
@@ -40,8 +39,6 @@ void SettingsReader::allocateCalcParameters()
 
 void SettingsReader::freeCalcParameters()
 {
-
-	LOG(logDEBUG)<<"Freeing calculator parameters";
 	for (size_t irefl = 0; irefl < getNbReflections(); irefl++)
 	{
 		delete[] calcParameters[irefl];
@@ -61,58 +58,75 @@ bool SettingsReader::isComment(std::string& str)
 bool SettingsReader::readSettings(std::string filename)
 {
 	inpFileName = filename;
-	std::cout << "Reading settings..." << inpFileName << std::endl;
+	std::cout << "Reading settings from\t" << inpFileName << std::endl;
 
 	std::string dataFileExt;
 	filesystem::path dataDir;
 	filesystem::path layerPropsFile;
+	libconfig::Config cfg;
+
+	cfg.setAutoConvert(true);
 	try
 	{
-		ConfigFile config(inpFileName);
+		cfg.readFile(inpFileName.c_str());
+		const libconfig::Setting& root = cfg.getRoot();
+		const libconfig::Setting& sampleStg = root["Sample"];
+		const libconfig::Setting& engineStg = root["Engine"];
+		//const libconfig::Setting& fpsStg = root["FitParameters"];
 
 		/*directory with data to fit*/
-		m_sampleSettings.a0 = sample["a0"];
-		config.readInto<filesystem::path>(dataDir, "dataDirectory", "data");
+		dataDir = engineStg["dataDirectory"].c_str();
 		std::cout<<"Data directory: \t"<< dataDir << std::endl;
 
 		/*output directory*/
-		config.readInto<filesystem::path>(workDir, "workDirectory", "work");
+		workDir = engineStg["workDirectory"].c_str();
 		std::cout<<"Working directory: \t"<<workDir << std::endl;
 
 		reflectionsFile = workDir / "reflections.dat";
 		parametersFile = workDir / "parameters.dat";
 		errorsFile = workDir / "errors.dat";
 
-		config.readInto<filesystem::path>(layerPropsFile, "layerProperties",
-				"default.prop");
-		std::cout << "Layer stack properties: \t" << layerPropsFile << std::endl;
-		layerPropsFile = workDir / layerPropsFile;
-
-		config.readInto<std::string>(dataFileExt, "dataFileExtension", "csv");
+		dataFileExt = engineStg["dataFileExtension"].c_str();
 		std::cout<<"Data file extension: \t"<<dataFileExt << std::endl;
 
-		config.readInto<double>(background, "background", 0.0);
+		layerPropsFile = sampleStg["layerProperties"].c_str();
+		layerPropsFile = workDir / layerPropsFile;
+		std::cout << "Layer stack properties: \t" << layerPropsFile << std::endl;
+
+		background = sampleStg["background"];
 		std::cout << "Background level : "<<background<< std::endl;
 
-		config.readInto<double>(nu, "nu", 1.0/3);
+		nu = sampleStg["nu"];
 		std::cout << "Poisson ratio : "<<nu << std::endl;
 
-		config.readInto<size_t>(nbLinesSkip, "nbSkip", 0.0);
+		nbLinesSkip = engineStg["nbSkip"];
 		std::cout << "Skip every : "<<nbLinesSkip<<" datapoint" << std::endl;
 
-		config.readInto<size_t>(nbIterations, "nbIterations", 10);
+		nbIterations = engineStg["nbIterations"];
 		std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
 				<< std::endl;
 
-	}
-	catch(ConfigFile::file_not_found& e )
+		//TODO readSampleSettings(root);
+		//TODO readFitParameterSettings(root);
+		//TODO readEngineSettings(root);
+	} catch (const libconfig::FileIOException &fioex)
 	{
-		LOG(logERROR) <<"Error - File '" << e.filename << "' not found.";
+		std::cerr << fioex.what() << " in\t" << inpFileName << std::endl;
 		return false;
-	}
-	catch(ConfigFile::key_not_found& e )
+	} catch (const libconfig::ParseException &pex)
 	{
-		LOG(logERROR) << "Error - Key '" << e.key << "' not found.";
+		std::cerr << pex.what() << " in\t" << inpFileName << ":"
+						<< pex.getLine() << " - "
+						<< pex.getError() << std::endl;
+		return false;
+	} catch (const libconfig::SettingNotFoundException &nfex)
+	{
+		std::cerr << nfex.what() << "\t" << nfex.getPath()
+						<< " in\t" << inpFileName << std::endl;
+		return false;
+	} catch (libconfig::SettingTypeException& tex)
+	{
+		std::cerr << tex.what() << "\t" << tex.getPath() << " in\t" << inpFileName << std::endl;
 		return false;
 	}
 
@@ -129,7 +143,7 @@ bool SettingsReader::readStack(const filesystem::path& filename)
 	std::ifstream fin(filename.c_str());
 	if(!fin)
 	{
-		LOG(logERROR)<<"File is not found: "<<filename;
+		std::cerr << "File is not found: " << filename << std::endl;
 		return false;
 	}
 	std::istringstream is;
@@ -172,7 +186,7 @@ bool SettingsReader::parseLine(std::string & str)
 
 	if(nbToks!=idxNB)
 	{
-		LOG(logWARNING)<<"Not enough parameters in the string:\n"<<str;
+		std::cerr << "Not enough parameters in the string:\n" << str << std::endl;
 		return false;
 	}
 
@@ -247,7 +261,9 @@ int SettingsReader::registerReflection(std::string str)
 
 		if (Q0ylab != 0)
 		{
-			LOG(logWARNING)<<"Reflection "<<str<<" is not usable since Q0y [lab] is equal to "<<Q0ylab;
+			std::cerr << "Reflection " << str
+					<< " is not usable since Q0y [lab] is equal to " << Q0ylab
+					<< std::endl;
 		}
 
 
@@ -406,7 +422,7 @@ bool SettingsReader::readDataFile(const boost::filesystem::path& filename, DataF
 	}
 	if(reflIndex<0)
 	{
-		LOG(logWARNING)<<"Check reflection in the file:\t"<<filename;
+		std::cerr << "Check reflection in the file:\t" << filename << std::endl;
 		return false;
 	}
 	dfp.reflIndex=reflIndex;
