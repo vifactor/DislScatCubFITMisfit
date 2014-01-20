@@ -23,7 +23,8 @@ SettingsReader::SettingsReader()
 
 SettingsReader::~SettingsReader()
 {
-	if(!reflParameters.empty()) saveReflections();
+	if (!reflParameters.empty())
+		saveReflections();
 	if(!layerParameterIndices.empty()) saveParameters();
 	if(calcParameters) freeCalcParameters();
 }
@@ -58,80 +59,60 @@ bool SettingsReader::isComment(std::string& str)
 	return false;
 }
 
-bool SettingsReader::readSettings(std::string filename)
+bool SettingsReader::readSettings(std::string cfgFile)
 {
-	inpFileName = filename;
-	std::cout << "Reading settings from\t" << inpFileName << std::endl;
-
-	std::string dataFileExt;
-	filesystem::path dataDir;
+	boost::filesystem::path filename;
 	libconfig::Config cfg;
 
 	cfg.setAutoConvert(true);
+	engineCfgFile = cfgFile;
 	try
 	{
-		cfg.readFile(inpFileName.c_str());
-		const libconfig::Setting& root = cfg.getRoot();
-		const libconfig::Setting& sampleCfg = root["Sample"];
-		const libconfig::Setting& engineCfg = root["Engine"];
-		const libconfig::Setting& dataCfg = root["Data"];
-		//const libconfig::Setting& fpsCfg = root["FitParameters"];
+		/*engine settings*/
+		filename = engineCfgFile;
+		cfg.readFile(filename.c_str());
+		readEngineConfig(cfg.getRoot());
 
-		/*directory with data to fit*/
-		dataDir = engineCfg["dataDirectory"].c_str();
-		std::cout<<"Data directory: \t"<< dataDir << std::endl;
+		/*engine settings*/
+		filename = sampleCfgFile;
+		cfg.readFile(filename.c_str());
+		readSampleConfig(cfg.getRoot());
 
-		/*output directory*/
-		workDir = engineCfg["workDirectory"].c_str();
-		std::cout<<"Working directory: \t"<<workDir << std::endl;
+		/*data settings*/
+		filename = dataCfgFile;
+		cfg.readFile(filename.c_str());
+		readDataConfig(cfg.getRoot());
 
-		reflectionsFile = workDir / "reflections.dat";
-		parametersFile = workDir / "parameters.dat";
-		errorsFile = workDir / "errors.dat";
+		/*fit parameters settings*/
+		filename = fitCfgFile;
+		cfg.readFile(filename.c_str());
+		readFitParametersConfig(cfg.getRoot());
 
-		dataFileExt = engineCfg["dataFileExtension"].c_str();
-		std::cout<<"Data file extension: \t"<<dataFileExt << std::endl;
-
-		background = sampleCfg["background"];
-		std::cout << "Background level : "<<background<< std::endl;
-
-		nu = sampleCfg["nu"];
-		std::cout << "Poisson ratio : "<<nu << std::endl;
-
-		nbLinesSkip = engineCfg["nbSkip"];
-		std::cout << "Skip every : "<<nbLinesSkip<<" datapoint" << std::endl;
-
-		nbIterations = engineCfg["nbIterations"];
-		std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
-				<< std::endl;
-
-		//TODO readEngineSettings(engineCfg);
-		readSampleConfig(sampleCfg);
-		readDataConfig(dataCfg);
-		//TODO readFitParameterSettings(fpsCfg);
 	} catch (const libconfig::FileIOException &fioex)
 	{
-		std::cerr << fioex.what() << " in\t" << inpFileName << std::endl;
+		std::cerr << fioex.what() << " in\t" << filename << std::endl;
 		return false;
 	} catch (const libconfig::ParseException &pex)
 	{
-		std::cerr << pex.what() << " in\t" << inpFileName << ":"
+		std::cerr << pex.what() << " in\t" << filename << ":"
 						<< pex.getLine() << " - "
 						<< pex.getError() << std::endl;
 		return false;
 	} catch (const libconfig::SettingNotFoundException &nfex)
 	{
 		std::cerr << nfex.what() << "\t" << nfex.getPath()
-						<< " in\t" << inpFileName << std::endl;
+						<< " in\t" << filename << std::endl;
 		return false;
 	} catch (libconfig::SettingTypeException& tex)
 	{
-		std::cerr << tex.what() << "\t" << tex.getPath() << " in\t" << inpFileName << std::endl;
+		std::cerr << tex.what() << "\t" << tex.getPath() << " in\t" << filename << std::endl;
 		return false;
 	}
 
 	allocateCalcParameters();
 	resetCalcParameters();
+
+
 	std::cout << "fit parameters:" << std::endl;
 	for (size_t i = 0; i < fitParameters.size(); ++i)
 	{
@@ -144,10 +125,48 @@ bool SettingsReader::readSettings(std::string filename)
 	return true;
 }
 
-void SettingsReader::readSampleConfig(const libconfig::Setting& sample)
+void SettingsReader::readEngineConfig(const libconfig::Setting& root)
 {
-	const libconfig::Setting& layersCfg = sample["layers"];
+	const libconfig::Setting& engineCfg = root["Engine"];
 
+	/*output directory*/
+	workDir = engineCfg["workDirectory"].c_str();
+	std::cout << "Working directory: \t" << workDir << std::endl;
+
+	/*file with sample properties*/
+	sampleCfgFile = engineCfg["sample_cfg"].c_str();
+	sampleCfgFile = workDir / sampleCfgFile;
+	std::cout << "Sample configuration file: \t" << sampleCfgFile << std::endl;
+
+	/*file with data configuration*/
+	dataCfgFile = engineCfg["data_cfg"].c_str();
+	dataCfgFile = workDir / dataCfgFile;
+	std::cout << "Data configuration file: \t" << dataCfgFile << std::endl;
+
+	/*file with fit parameters listing*/
+	fitCfgFile = engineCfg["fit_cfg"].c_str();
+	fitCfgFile = workDir / fitCfgFile;
+	std::cout << "Fit parameters file: \t" << fitCfgFile << std::endl;
+
+	/*file to write fitted parameters*/
+	resultFile = engineCfg["output"].c_str();
+	resultFile = workDir / resultFile;
+	std::cout << "Output file: \t" << resultFile << std::endl;
+
+	/*how many LM itaretions to perform*/
+	nbIterations = engineCfg["nbIterations"];
+	std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
+			<< std::endl;
+}
+
+void SettingsReader::readSampleConfig(const libconfig::Setting& root)
+{
+	const libconfig::Setting& sampleCfg = root["Sample"];
+
+	nu = sampleCfg["nu"];
+	std::cout << "Poisson ratio : "<<nu << std::endl;
+
+	const libconfig::Setting& layersCfg = sampleCfg["layers"];
 	std::cout<<"Reading layer stack parameters..." << std::endl;
 
 	nbLayers = layersCfg.getLength();
@@ -169,6 +188,11 @@ void SettingsReader::readSampleConfig(const libconfig::Setting& sample)
 	std::cout << fitParameters.size() << " of them are fit parameters"
 			<< std::endl;
 	std::cout << std::endl;
+}
+
+void SettingsReader::readFitParametersConfig(const libconfig::Setting& cfg)
+{
+
 }
 
 void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
@@ -200,35 +224,30 @@ void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
 		std::cout << std::endl;
 }
 
-void SettingsReader::readDataConfig(const libconfig::Setting& data)
+void SettingsReader::readDataConfig(const libconfig::Setting& root)
 {
+	const libconfig::Setting& dataCfg = root["Data"];
+
+	background = dataCfg["background"];
+	std::cout << "Background level : "<<background<< std::endl;
+
+	nbLinesSkip = dataCfg["nbSkip"];
+	std::cout << "Skip every : "<<nbLinesSkip<<" datapoint" << std::endl;
+
+	const libconfig::Setting& files = dataCfg["files"];
 	/*loop over reflections*/
-	for(int iref = 0; iref < data.getLength(); ++iref)
+	for(int iref = 0; iref < files.getLength(); ++iref)
 	{
-		const libconfig::Setting& reflection = data[iref];
-		registerReflectionSetting(reflection);
+		const libconfig::Setting& data = files[iref];
+		registerDataSetting(data);
 	}
 }
 
-void SettingsReader::registerReflectionSetting(const libconfig::Setting& reflection)
+void SettingsReader::registerDataSetting(const libconfig::Setting& reflection)
 {
 	const libconfig::Setting& Q = reflection["Q"];
 	const libconfig::Setting& files = reflection["files"];
 	const libconfig::Setting& layers = reflection["layers"];
-
-	/*for(int ifile = 0; ifile < files.getLength(); ++ifile)
-	{
-		std::cout << "file:\t" << files[ifile].c_str() << std::endl;
-	}
-	for(int ilay = 0; ilay < layers.getLength(); ++ilay)
-	{
-		double sqf = layers[ilay]["sqf"];
-		double centerx = layers[ilay]["center"][0];
-		double centery = layers[ilay]["center"][1];
-
-		std::cout << "sqf:\t" << sqf << std::endl;
-		std::cout << "center:\t(" << centerx << ", " << centery << ")" << std::endl;
-	}*/
 
 	Reflection thisReflection;
 	thisReflection.Qxcub = Q[0];
@@ -316,30 +335,55 @@ void SettingsReader::registerReflectionSetting(const libconfig::Setting& reflect
 
 bool SettingsReader::saveReflections()
 {
-	std::cout<<"Saving reflections..." << std::endl;
-	std::ofstream fout(reflectionsFile.c_str());
-	if(!fout.is_open()) return false;
-	for(size_t irefl = 0; irefl < reflParameters.size(); irefl++)
+	boost::filesystem::path output_file;
+	libconfig::Config cfg;
+
+	// Read the file. If there is an error, report it and exit.
+	try
 	{
-		for(size_t ilayer = 0; ilayer < nbLayers; ilayer++)
-		{
-			fout<<reflParameters.at(irefl).Qxcub<<":"
-				<<reflParameters.at(irefl).Qycub<<":"
-				<<reflParameters.at(irefl).Qzcub<<":"
-				<<ilayer<<":"
-				<<allParameters.at(reflParameters.at(irefl).sqfsIndices.at(ilayer)).m_value<<":"
-				<<allParameters.at(reflParameters.at(irefl).dQxIndices.at(ilayer)).m_value<<":"
-				<<allParameters.at(reflParameters.at(irefl).dQzIndices.at(ilayer)).m_value<<"\n";
-		}
+		cfg.readFile(dataCfgFile.c_str());
+	} catch (const libconfig::FileIOException &fioex)
+	{
+		std::cerr << "I/O error while reading file." << std::endl;
+		return (EXIT_FAILURE);
+	} catch (const libconfig::ParseException &pex)
+	{
+		std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+				<< " - " << pex.getError() << std::endl;
+		return (EXIT_FAILURE);
 	}
-	fout.close();
-	return true;
+
+	// Write out the updated configuration.
+	output_file = dataCfgFile;
+	output_file.replace_extension("~cfg");
+	try
+	{
+		//reset configuration putting the new fitted values from fitParameters
+		for(size_t i = 0; i < fitParameters.size(); ++i)
+		{
+			if(cfg.exists(allParameters.at(fitParameters.at(i).parameterIndex).m_name))
+			{
+				cfg.lookup(allParameters.at(fitParameters.at(i).parameterIndex).m_name) = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
+			}
+		}
+
+		cfg.writeFile(output_file.c_str());
+		std::cout << "Updated configuration successfully written to: " << output_file
+				<< std::endl;
+
+	} catch (const libconfig::FileIOException &fioex)
+	{
+		std::cerr << "I/O error while writing file: " << output_file << std::endl;
+		return (EXIT_FAILURE);
+	}
+
+	return (EXIT_SUCCESS);
 }
 
 bool SettingsReader::saveParameters()
 {
 	std::cout<<"Saving parameters..." << std::endl;
-	std::ofstream fout(parametersFile.c_str());
+	std::ofstream fout("results.txt");
 	if(!fout.is_open()) return false;
 
 	time_t tt;
@@ -519,7 +563,7 @@ void SettingsReader::saveFitData(const double * f, std::string suffix)
 
 void SettingsReader::saveFitParameters(const double * x, const double * c)
 {
-	std::ofstream fout(errorsFile.c_str());
+	std::ofstream fout(resultFile.c_str());
 	resetFitParameters(x);
 	fout << "#iparam\tidx\tvalue+/-error" << std::endl;
 	for (size_t iparam = 0; iparam < getNbFitParameters(); iparam++)

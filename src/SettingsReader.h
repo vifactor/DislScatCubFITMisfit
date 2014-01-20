@@ -90,7 +90,6 @@ public:
 private:
 	//content of the layer properties file
 	enum {idxCOORD,idxRHO0,idxK,idxSIGN,idxG1, idxG2,idxQCCZ,idxNB};
-	std::string inpFileName;
 	boost::filesystem::path workDir;
 	//content of the inp file
 	size_t nbIterations;//how may iterations to perform before break
@@ -109,26 +108,27 @@ private:
 	std::vector<DataPoint> dataPoints;
 	std::vector<DataFileProperty> dataFileProperties;
 
+	void readEngineConfig(const libconfig::Setting& cfg);
+	void readSampleConfig(const libconfig::Setting& cfg);
+	void readFitParametersConfig(const libconfig::Setting& cfg);
+	void readDataConfig(const libconfig::Setting& cfg);
+
+	void registerSampleSetting(const libconfig::Setting& cfg);
+	void registerDataSetting(const libconfig::Setting& reflection);
 	bool readDataFile(const boost::filesystem::path& filename, DataFileProperty & dfp);
 
-	void readSampleConfig(const libconfig::Setting& cfg);
-	void registerSampleSetting(const libconfig::Setting& cfg);
-
 	bool isComment(std::string& str);
-	void parseParameter(char * str, std::vector<std::string>& params);
 
-	void readDataConfig(const libconfig::Setting& reflections);
-	void registerReflectionSetting(const libconfig::Setting& reflection);
 
-	int registerReflection(std::string);//returns index of the reflection in reflParameters
 	bool saveReflections();//saves the reflection array into a file
 	bool saveParameters();//saves the parameters array into a file
-	bool setupSQFs(const std::string&, Reflection& );
-	boost::filesystem::path reflectionsFile;
-	boost::filesystem::path parametersFile;
-	boost::filesystem::path errorsFile;
-private:
-	std::map<std::string, size_t> reflParametersIndices;//TODO this should be finally removed as ineffective
+
+	boost::filesystem::path engineCfgFile;
+	boost::filesystem::path dataCfgFile;
+	boost::filesystem::path sampleCfgFile;
+	boost::filesystem::path fitCfgFile;
+	boost::filesystem::path resultFile;
+	std::map<std::string, size_t> reflParametersIndices;
 private:
 	double ** calcParameters;//xs[irefl] - calculator parameters
 	void resetCalcParameters();

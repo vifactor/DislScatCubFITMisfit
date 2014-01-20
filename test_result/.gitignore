@@ -1,4 +1,5 @@
 *
 !.gitignore
-!reflections.cfg
+!fit.cfg
 !sample.cfg
+!data.cfg
