@@ -2,3 +2,4 @@
 .project
 Debug
 DislScatCubFITMisfit
+*.stackdump

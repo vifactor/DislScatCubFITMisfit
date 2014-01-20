@@ -109,7 +109,6 @@ private:
 	std::vector<DataPoint> dataPoints;
 	std::vector<DataFileProperty> dataFileProperties;
 
-	bool readDataFiles(const boost::filesystem::path& dirname, const std::string& ext);
 	bool readDataFile(const boost::filesystem::path& filename, DataFileProperty & dfp);
 
 	void readSampleConfig(const libconfig::Setting& cfg);

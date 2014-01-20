@@ -30,10 +30,10 @@ SettingsReader::~SettingsReader()
 
 void SettingsReader::allocateCalcParameters()
 {
-	calcParameters=new double*[getNbReflections()];
-	for(size_t irefl=0;irefl<getNbReflections();irefl++)
+	calcParameters = new double*[getNbReflections()];
+	for (size_t irefl = 0; irefl < getNbReflections(); irefl++)
 	{
-		calcParameters[irefl]=new double [(idxNB+3)*nbLayers];
+		calcParameters[irefl] = new double[(idxNB + 3) * nbLayers];
 	}
 }
 
@@ -52,6 +52,9 @@ bool SettingsReader::isComment(std::string& str)
 	if(str.empty()) return true;
 	//comment
 	if(str[0]=='#') return true;
+	//old reflection indicator
+	if(str[0]=='%') return true;
+
 	return false;
 }
 
@@ -127,9 +130,17 @@ bool SettingsReader::readSettings(std::string filename)
 		return false;
 	}
 
-	readDataFiles(dataDir, dataFileExt);
 	allocateCalcParameters();
 	resetCalcParameters();
+	std::cout << "fit parameters:" << std::endl;
+	for (size_t i = 0; i < fitParameters.size(); ++i)
+	{
+		std::cout << allParameters.at(fitParameters.at(i).parameterIndex).m_name
+				<< "\t=\t"
+				<< allParameters.at(fitParameters.at(i).parameterIndex).m_value
+				<< std::endl;
+	}
+
 	return true;
 }
 
@@ -201,137 +212,106 @@ void SettingsReader::readDataConfig(const libconfig::Setting& data)
 
 void SettingsReader::registerReflectionSetting(const libconfig::Setting& reflection)
 {
+	const libconfig::Setting& Q = reflection["Q"];
+	const libconfig::Setting& files = reflection["files"];
+	const libconfig::Setting& layers = reflection["layers"];
 
-}
-
-
-void SettingsReader::parseParameter(char * str, std::vector<std::string>& params)
-{
-	char delims[]=":|";
-	char * tok, *saveptr;
-
-	for(tok=strtok_r(str,delims, &saveptr);tok;tok=strtok_r(NULL,delims, &saveptr))
+	/*for(int ifile = 0; ifile < files.getLength(); ++ifile)
 	{
-		params.push_back(tok);
+		std::cout << "file:\t" << files[ifile].c_str() << std::endl;
 	}
-}
-
-int SettingsReader::registerReflection(std::string str)
-{
-	stripAllBlanc(str);
-	str=str.substr(1);//first symbol is '%'
-
-	if (reflParametersIndices.find(str) == reflParametersIndices.end())
+	for(int ilay = 0; ilay < layers.getLength(); ++ilay)
 	{
+		double sqf = layers[ilay]["sqf"];
+		double centerx = layers[ilay]["center"][0];
+		double centery = layers[ilay]["center"][1];
 
-		std::vector<std::string> params;
-		char cstr[str.size() + 1];
-		strcpy(cstr, str.c_str());
-		parseParameter(cstr, params);
-		if(params.size()<3)
-		{
-			return -1;
-		}
+		std::cout << "sqf:\t" << sqf << std::endl;
+		std::cout << "center:\t(" << centerx << ", " << centery << ")" << std::endl;
+	}*/
 
-		Reflection thisReflection;
-		thisReflection.Qxcub = atof(params[0].c_str());
-		thisReflection.Qycub = atof(params[1].c_str());
-		thisReflection.Qzcub = atof(params[2].c_str());
+	Reflection thisReflection;
+	thisReflection.Qxcub = Q[0];
+	thisReflection.Qycub = Q[1];
+	thisReflection.Qzcub = Q[2];
 
-		//transform the reflection coords from cubic to laboratory coordinate frame
-		double Q0xlab = 1.0 / sqrt(2.0) * (thisReflection.Qxcub + thisReflection.Qycub);
-		double Q0ylab = 1.0 / sqrt(2.0) * (-thisReflection.Qxcub + thisReflection.Qycub);
-		double Q0zlab = thisReflection.Qzcub;
+	//transform the reflection coords from cubic to laboratory coordinate frame
+	double Q0xlab = 1.0 / sqrt(2.0) * (thisReflection.Qxcub + thisReflection.Qycub);
+	double Q0ylab = 1.0 / sqrt(2.0) * (-thisReflection.Qxcub + thisReflection.Qycub);
+	double Q0zlab = thisReflection.Qzcub;
 
-		std::cout<<"Q0lab: "<<Q0xlab<<"\t"<<Q0zlab << std::endl;
+	std::cout<<"Q0lab: "<<Q0xlab<<"\t"<<Q0zlab << std::endl;
 
-		if (Q0ylab != 0)
-		{
-			std::cerr << "Reflection " << str
-					<< " is not usable since Q0y [lab] is equal to " << Q0ylab
-					<< std::endl;
-		}
-
-
-		thisReflection.Qxlab=Q0xlab;
-		thisReflection.Qzlab=Q0zlab;
-
-		//reciprocal vector's norm
-		double normQ=sqrt(Q0xlab*Q0xlab+Q0zlab*Q0zlab);
-		//unity vectors parallel and perpendicular to the reciprocal vector
-		thisReflection.nparx=Q0xlab/normQ;
-		thisReflection.nparz=Q0zlab/normQ;
-		thisReflection.nperx=1.0/sqrt(1.0+thisReflection.nparx*thisReflection.nparx/(thisReflection.nparz*thisReflection.nparz));
-		thisReflection.nperz=-thisReflection.nparx/thisReflection.nparz*thisReflection.nperx;
-
-		setupSQFs(str, thisReflection);
-
-		reflParametersIndices[str]=reflParameters.size();
-		reflParameters.push_back(thisReflection);
+	if (Q0ylab != 0)
+	{
+		std::cerr << "Reflection " << Q.getPath()
+				<< " is not usable since Q0y [lab] is equal to " << Q0ylab
+				<< std::endl;
 	}
-	return reflParametersIndices.find(str)->second;
-}
 
-bool SettingsReader::setupSQFs(const std::string& str, Reflection& reflection)
-{
-	reflection.sqfsIndices.resize(nbLayers);
-	reflection.dQxIndices.resize(nbLayers);
-	reflection.dQzIndices.resize(nbLayers);
-	std::ifstream fin(reflectionsFile.c_str());
+	thisReflection.Qxlab=Q0xlab;
+	thisReflection.Qzlab=Q0zlab;
+
+	//reciprocal vector's norm
+	double normQ = sqrt(Q0xlab * Q0xlab + Q0zlab * Q0zlab);
+	//unity vectors parallel and perpendicular to the reciprocal vector
+	thisReflection.nparx = Q0xlab / normQ;
+	thisReflection.nparz = Q0zlab / normQ;
+	thisReflection.nperx = 1.0
+			/ sqrt(
+					1.0
+							+ thisReflection.nparx * thisReflection.nparx
+									/ (thisReflection.nparz
+											* thisReflection.nparz));
+	thisReflection.nperz = -thisReflection.nparx / thisReflection.nparz
+			* thisReflection.nperx;
+
+	reflParametersIndices[Q.getPath()] = reflParameters.size();
+
+	/*TODO check if nbLayers == layers.getLength()*/
+	thisReflection.sqfsIndices.resize(nbLayers);
+	thisReflection.dQxIndices.resize(nbLayers);
+	thisReflection.dQzIndices.resize(nbLayers);
 
 	FitParameter fitParameter;
 	for (size_t ilayer = 0; ilayer < nbLayers; ilayer++)
 	{
-		reflection.sqfsIndices.at(ilayer)=allParameters.size();
-		allParameters.push_back(
-				Parameter("", 1.0)
-				);
+		thisReflection.sqfsIndices.at(ilayer) = allParameters.size();
 
 		//sqf default value
-		fitParameter.lowValue=1e-15;
-		fitParameter.upValue=1e15;
-		fitParameter.parameterIndex=reflection.sqfsIndices.at(ilayer);
+		fitParameter.lowValue = 1e-15;
+		fitParameter.upValue = 1e15;
+		fitParameter.parameterIndex = thisReflection.sqfsIndices.at(ilayer);
 		fitParameters.push_back(fitParameter);
 
-		reflection.dQxIndices.at(ilayer)=allParameters.size();
-		allParameters.push_back(
-				Parameter("", 0.0)
-				);//dQx default value
-		reflection.dQzIndices.at(ilayer)=allParameters.size();
-		allParameters.push_back(
-				Parameter("", 0.0)
-				);//dQz default value
-	}
-	if(!fin.is_open())	return false;
-	std::string line;
-	std::vector<std::string> params;
-	int ilayer;
-	double sqf, dQx, dQz;
-	while(!fin.eof())
-	{
-		getline(fin,line);
-		//skip the comment
-		if(isComment(line)) continue;
-		//find reflection
-		if(line.find(str)!=std::string::npos)
-		{
-			char tok[line.size()];
-			strcpy(tok, line.c_str());
-			parseParameter(tok, params);//"Qx:Qy:Qz:ilayer:sqf:dQx:dQz"
-			if(params.size()<7) continue;
+		allParameters.push_back(Parameter("", 1.0));
+		allParameters.at(thisReflection.sqfsIndices.at(ilayer)).m_name = layers[ilayer]["sqf"].getPath();
+		allParameters.at(thisReflection.sqfsIndices.at(ilayer)).m_value = layers[ilayer]["sqf"];
 
-			ilayer=atoi(params[3].c_str());
-			sqf=atof(params[4].c_str());
-			dQx=atof(params[5].c_str());
-			dQz=atof(params[6].c_str());
-			allParameters.at(reflection.sqfsIndices.at(ilayer)).m_value = sqf;
-			allParameters.at(reflection.dQxIndices.at(ilayer)).m_value = dQx;
-			allParameters.at(reflection.dQzIndices.at(ilayer)).m_value = dQz;
-		}
-		params.clear();
+		thisReflection.dQxIndices.at(ilayer) = allParameters.size();
+		allParameters.push_back(Parameter("", 1.0));
+		allParameters.at(thisReflection.dQxIndices.at(ilayer)).m_name = layers[ilayer]["center"][0].getPath();
+		allParameters.at(thisReflection.dQxIndices.at(ilayer)).m_value = layers[ilayer]["center"][0];
+
+		thisReflection.dQzIndices.at(ilayer) = allParameters.size();
+		allParameters.push_back(Parameter("", 1.0));
+		allParameters.at(thisReflection.dQzIndices.at(ilayer)).m_name = layers[ilayer]["center"][1].getPath();
+		allParameters.at(thisReflection.dQzIndices.at(ilayer)).m_value = layers[ilayer]["center"][1];
 	}
-	fin.close();
-	return true;
+	reflParameters.push_back(thisReflection);
+
+	for (int ifile = 0; ifile < files.getLength(); ifile++)
+	{
+		std::cout << Q.getPath() << "\t" << ifile << std::endl;
+		DataFileProperty fileContent;
+		fileContent.reflIndex = reflParametersIndices[Q.getPath()];
+		if(readDataFile(files[ifile].c_str(), fileContent))
+		{
+			dataFileProperties.push_back(fileContent);
+		}
+		else
+			std::cerr << "File is empty or erroneous: " << files[ifile].c_str() << std::endl;
+	}
 }
 
 bool SettingsReader::saveReflections()
@@ -385,109 +365,47 @@ bool SettingsReader::readDataFile(const boost::filesystem::path& filename, DataF
 	std::ifstream fin(filename.c_str());
 	if(!fin)
 	{
-		std::cerr << "File is not found: " << filename;
+		std::cerr << "File is not found: " << filename << std::endl;
 		return false;
 	}
 	dfp.filename=filename;
 
 	std::string line;
-	int reflIndex=-1;
 	std::istringstream is;
 
 	size_t nbPointsToRead=0, nbPointsRead=0;
 	DataPoint dp;
 
-	while(!fin.eof())
+	while (!fin.eof())
 	{
-		getline(fin,line);
-		if(line.find("%")!=std::string::npos)
-		{
-			reflIndex=registerReflection(line);
-			break;
-		}
-	}
-	if(reflIndex<0)
-	{
-		std::cerr << "Check reflection in the file:\t" << filename << std::endl;
-		return false;
-	}
-	dfp.reflIndex=reflIndex;
-	while(!fin.eof())
-	{
-		getline(fin,line);
+		getline(fin, line);
 		//skip the comment
-		if(isComment(line)) continue;
+		if (isComment(line)) continue;
 		//how many points could be used
 		nbPointsToRead++;
-		//skip nbLinesSkip lines
-		if(nbPointsToRead%(nbLinesSkip+1)!=0)	continue;
+
+		//TODO remove this when interpolation is implemented
+		/*skip nbLinesSkip lines*/
+		if (nbPointsToRead % (nbLinesSkip + 1) != 0)
+			continue;
 		//read data point
 		is.str(line);
-		is>>dp.qx>>dp.qz>>dp.intensity;
-		dp.qx = dp.qx*aSub;
-		dp.qz = dp.qz*aSub;
+		is >> dp.qx >> dp.qz >> dp.intensity;
+		dp.qx = dp.qx * aSub;
+		dp.qz = dp.qz * aSub;
 
-		dp.reflIndex=reflIndex;
+		dp.reflIndex = dfp.reflIndex;
 
 		dataPoints.push_back(dp);
 		nbPointsRead++;
 		is.clear();
 	}
 	fin.close();
-	dfp.nbPoints=nbPointsRead;
+	dfp.nbPoints = nbPointsRead;
 
 	std::cout << "Nb of Points to read:\t" << nbPointsToRead << std::endl;
 	std::cout << "Nb of Points read " << nbPointsRead << std::endl;
 	std::cout << "Total nbPoints " << dataPoints.size() << std::endl;
-	return true;
-}
-
-bool SettingsReader::readDataFiles(const boost::filesystem::path& dirname, const std::string& ext)
-{
-	std::cout<<"Reading data files..." << std::endl;
-	std::vector<std::string> files = std::vector<std::string>();
-
-	filesystem::path path(dirname);
-	try
-	{
-		if ( filesystem::is_directory( path ) )
-		{
-			filesystem::directory_iterator end_iter;
-			for (filesystem::directory_iterator dir_itr(path);
-					dir_itr != end_iter; ++dir_itr)
-			{
-				if (filesystem::is_regular_file(dir_itr->status()))
-				{
-					filesystem::path filename = dir_itr->path();
-					std::string extention = dir_itr->path().extension().c_str();
-
-					if(extention.compare("." + ext) == 0)
-					{
-						DataFileProperty fileContent;
-						if(readDataFile(filename, fileContent))
-						{
-							dataFileProperties.push_back(fileContent);
-						}
-						else
-							std::cout << "File is empty or erroneous: " << dir_itr->path().filename();
-					}
-
-				}
-			}
-		}
-		else
-		{
-			std::cout << "Error opening directory:\t" << path;
-			return false;
-		}
-	} catch(const std::exception & ex)
-	{
-		std::cout << path.c_str() << " " << ex.what() << std::endl;
-	}
-
-	std::cout << "Nb files read\t" << dataFileProperties.size() << std::endl;
-	if (!dataPoints.size())
-		return false;
 	return true;
 }
 
@@ -514,7 +432,7 @@ void SettingsReader::initializeFitParametersBounds(double * lb, double * ub) con
 
 void SettingsReader::resetFitParameters(const double * x)
 {
-	for(size_t i=0;i<fitParameters.size();i++)
+	for (size_t i = 0; i < fitParameters.size(); i++)
 		allParameters.at(fitParameters.at(i).parameterIndex).m_value = x[i];
 	resetCalcParameters();
 }
