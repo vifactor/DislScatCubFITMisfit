@@ -1,5 +1,5 @@
-.cproject
-.project
-Debug
-DislScatCubFITMisfit
-*.stackdump
+*
+!.gitignore
+!src
+!test_result
+!test_scan
