@@ -24,7 +24,6 @@ SettingsReader::~SettingsReader()
 {
 	if (!reflParameters.empty())
 		saveReflections();
-//	if(!layerParameterIndices.empty()) saveParameters();
 	if(calcParameters) freeCalcParameters();
 }
 
@@ -106,17 +105,6 @@ bool SettingsReader::readSettings(std::string cfgFile)
 
 	allocateCalcParameters();
 	resetCalcParameters();
-
-
-	std::cout << "fit parameters:" << std::endl;
-	for (size_t i = 0; i < fitParameters.size(); ++i)
-	{
-		std::cout << allParameters.at(fitParameters.at(i).parameterIndex).m_name
-				<< "\t=\t"
-				<< allParameters.at(fitParameters.at(i).parameterIndex).m_value
-				<< std::endl;
-	}
-
 	return true;
 }
 
@@ -169,61 +157,58 @@ void SettingsReader::readSampleConfig(const libconfig::Setting& sampleCfg)
 			<< std::endl;
 	std::cout << "It is characterized by " << layerParameterIndices.size()
 			<< " parameters" << std::endl;
-	std::cout << fitParameters.size() << " of them are fit parameters"
-			<< std::endl;
-	std::cout << std::endl;
 }
 
 void SettingsReader::readFitParametersConfig(const libconfig::Setting& fitCfg)
 {
 	/*how many LM itaretions to perform*/
 	nbIterations = fitCfg["nbIterations"];
-	std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
-			<< std::endl;
+	std::cout << "Perform " << nbIterations << " iterations" << std::endl;
 
 	const libconfig::Setting& parameters = fitCfg["parameters"];
 
-	double lb, ub;
+	FitParameter fitParameter;
+	std::cout << "Fit parameters:" << std::endl;
 	for(int i = 0; i < parameters.getLength(); ++i)
 	{
 		const libconfig::Setting& name = parameters[i]["name"];
 		const libconfig::Setting& boundary = parameters[i]["boundary"];
 
-		lb = boundary[0];
-		ub = boundary[1];
+		/* ineffective way to find allParameters entry by its name
+		 * implemented for compatibility reasons
+		 * TODO should be changed in next versions
+		 */
+		for (size_t j = 0; j < allParameters.size(); ++j)
+		{
+			if (allParameters.at(j).m_name.compare(name.c_str()) == 0)
+			{
+				fitParameter.parameterIndex = j;
+				break;
+			}
+		}
 
-		std::cout << "Parameter:\t" << name.c_str() << std::endl;
-		std::cout << "\t[" << lb << ":" << ub << "]" << std::endl;
+		fitParameter.lowValue = boundary[0];
+		fitParameter.upValue = boundary[1];
+
+		fitParameters.push_back(fitParameter);
+
+		std::cout << "\t" << name.c_str() << "\t"
+				<< allParameters.at(fitParameters.at(i).parameterIndex).m_value
+				<< "\t[" << fitParameter.lowValue << ":"
+				<< fitParameter.lowValue << "]" << std::endl;
 	}
 }
 
 void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
 {
 	Parameter param;
-	FitParameter fitParameter;
 
 	layerParameterIndices.push_back(allParameters.size());
-
 	param.m_name = stg.getPath();
-	if(stg.isList())
-	{
-		param.m_value = stg[0];
-
-		fitParameter.parameterIndex = allParameters.size();
-		fitParameter.lowValue = stg[1][0];
-		fitParameter.upValue= stg[1][1];
-		fitParameters.push_back(fitParameter);
-	}
-	else
-	{
-		param.m_value = stg;
-	}
+	param.m_value = stg;
 	allParameters.push_back(param);
-	std::cout << allParameters.back().m_name << "\t" << allParameters.back().m_value;
-	if((!fitParameters.empty()) && (fitParameters.back().parameterIndex == allParameters.size() - 1))
-		std::cout << "\tfit it!" << std::endl;
-	else
-		std::cout << std::endl;
+
+	//std::cout << allParameters.back().m_name << "\t" << allParameters.back().m_value;
 }
 
 void SettingsReader::readDataConfig(const libconfig::Setting& dataCfg)
@@ -292,16 +277,9 @@ void SettingsReader::registerDataSetting(const libconfig::Setting& reflection)
 	thisReflection.dQxIndices.resize(nbLayers);
 	thisReflection.dQzIndices.resize(nbLayers);
 
-	FitParameter fitParameter;
 	for (size_t ilayer = 0; ilayer < nbLayers; ilayer++)
 	{
 		thisReflection.sqfsIndices.at(ilayer) = allParameters.size();
-
-		//sqf default value
-		fitParameter.lowValue = 1e-15;
-		fitParameter.upValue = 1e15;
-		fitParameter.parameterIndex = thisReflection.sqfsIndices.at(ilayer);
-		fitParameters.push_back(fitParameter);
 
 		allParameters.push_back(Parameter("", 1.0));
 		allParameters.at(thisReflection.sqfsIndices.at(ilayer)).m_name = layers[ilayer]["sqf"].getPath();
@@ -389,29 +367,6 @@ bool SettingsReader::saveReflections()
 	return (EXIT_SUCCESS);
 }
 
-bool SettingsReader::saveParameters()
-{
-	std::cout<<"Saving parameters..." << std::endl;
-	std::ofstream fout("results.txt");
-	if(!fout.is_open()) return false;
-
-	time_t tt;
-	time(&tt);
-	fout<<"#"<<ctime(&tt);
-	fout<<"#d\trho0\tk/60-deg\tsign\tg1\tg2\tQccz" << std::endl;
-	for(size_t ilayer = 0; ilayer < nbLayers; ilayer++)
-	{
-		for (size_t iparam = 0; iparam < idxNB; iparam++)
-			fout
-					<< allParameters.at(
-							layerParameterIndices.at(iparam + idxNB * ilayer)).m_value
-					<< "\t";
-		fout << std::endl;
-	}
-	fout.close();
-	return true;
-}
-
 bool SettingsReader::readDataFile(const boost::filesystem::path& filename, DataFileProperty & dfp)
 {
 	std::cout<<"File "<< filename << " is being read..." << std::endl;
@@ -464,22 +419,23 @@ bool SettingsReader::readDataFile(const boost::filesystem::path& filename, DataF
 
 void SettingsReader::initializeFitParameters(double * x) const
 {
-	for(size_t i=0;i<fitParameters.size();i++)
+	for (size_t i = 0; i < fitParameters.size(); i++)
 		x[i] = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
 }
 
 void SettingsReader::initializeFitData(double * f) const
 {
-	for(size_t i=0;i<dataPoints.size();i++)
-		f[i]=dataPoints.at(i).intensity;
+	for (size_t i = 0; i < dataPoints.size(); i++)
+		f[i] = dataPoints.at(i).intensity;
 }
 
-void SettingsReader::initializeFitParametersBounds(double * lb, double * ub) const
+void SettingsReader::initializeFitParametersBounds(double * lb,
+		double * ub) const
 {
-	for(size_t i=0;i<fitParameters.size();i++)
+	for (size_t i = 0; i < fitParameters.size(); i++)
 	{
-		lb[i]=fitParameters.at(i).lowValue;
-		ub[i]=fitParameters.at(i).upValue;
+		lb[i] = fitParameters.at(i).lowValue;
+		ub[i] = fitParameters.at(i).upValue;
 	}
 }
 
@@ -538,7 +494,7 @@ void SettingsReader::saveFitData(const double * f, std::string suffix)
 		{
 			/*trim old extension*/
 			outfile = workDir / dataFileProperties.at(ifile).filename.stem();
-			/*add new suffix and extention*/
+			/*add new suffix and extension*/
 			outfile = filesystem::path(outfile.native() + "_" + suffix + ".out");
 
 			std::cout << "\t...to " << outfile << std::endl;

@@ -119,9 +119,7 @@ private:
 
 	bool isComment(std::string& str);
 
-
 	bool saveReflections();//saves the reflection array into a file
-	bool saveParameters();//saves the parameters array into a file
 
 	boost::filesystem::path engineCfgFile;
 	boost::filesystem::path settingsCfgFile;
