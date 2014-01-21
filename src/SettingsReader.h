@@ -124,8 +124,7 @@ private:
 	bool saveParameters();//saves the parameters array into a file
 
 	boost::filesystem::path engineCfgFile;
-	boost::filesystem::path dataCfgFile;
-	boost::filesystem::path sampleCfgFile;
+	boost::filesystem::path settingsCfgFile;
 	boost::filesystem::path fitCfgFile;
 	boost::filesystem::path resultFile;
 	std::map<std::string, size_t> reflParametersIndices;

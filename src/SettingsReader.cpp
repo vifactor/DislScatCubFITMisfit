@@ -12,7 +12,6 @@ SettingsReader::SettingsReader()
 {
 	lambdaX = 1.54059; //Cu Kalpha wavelength
 	aSub = 5.43043; //Si lattice parameter
-	//aSub=1.0;//Si lattice parameter
 	nu = 1.0 / 3;	//'standard' Poisson ratio
 	nbLayers = 0;
 	nbLinesSkip = 0;
@@ -25,7 +24,7 @@ SettingsReader::~SettingsReader()
 {
 	if (!reflParameters.empty())
 		saveReflections();
-	if(!layerParameterIndices.empty()) saveParameters();
+//	if(!layerParameterIndices.empty()) saveParameters();
 	if(calcParameters) freeCalcParameters();
 }
 
@@ -71,22 +70,18 @@ bool SettingsReader::readSettings(std::string cfgFile)
 		/*engine settings*/
 		filename = engineCfgFile;
 		cfg.readFile(filename.c_str());
-		readEngineConfig(cfg.getRoot());
+		readEngineConfig(cfg.lookup("Engine"));
 
-		/*engine settings*/
-		filename = sampleCfgFile;
+		/*program settings*/
+		filename = settingsCfgFile;
 		cfg.readFile(filename.c_str());
-		readSampleConfig(cfg.getRoot());
-
-		/*data settings*/
-		filename = dataCfgFile;
-		cfg.readFile(filename.c_str());
-		readDataConfig(cfg.getRoot());
+		readSampleConfig(cfg.lookup("Sample"));
+		readDataConfig(cfg.lookup("Data"));
 
 		/*fit parameters settings*/
 		filename = fitCfgFile;
 		cfg.readFile(filename.c_str());
-		readFitParametersConfig(cfg.getRoot());
+		readFitParametersConfig(cfg.lookup("Fit"));
 
 	} catch (const libconfig::FileIOException &fioex)
 	{
@@ -125,23 +120,16 @@ bool SettingsReader::readSettings(std::string cfgFile)
 	return true;
 }
 
-void SettingsReader::readEngineConfig(const libconfig::Setting& root)
+void SettingsReader::readEngineConfig(const libconfig::Setting& engineCfg)
 {
-	const libconfig::Setting& engineCfg = root["Engine"];
-
 	/*output directory*/
 	workDir = engineCfg["workDirectory"].c_str();
 	std::cout << "Working directory: \t" << workDir << std::endl;
 
 	/*file with sample properties*/
-	sampleCfgFile = engineCfg["sample_cfg"].c_str();
-	sampleCfgFile = workDir / sampleCfgFile;
-	std::cout << "Sample configuration file: \t" << sampleCfgFile << std::endl;
-
-	/*file with data configuration*/
-	dataCfgFile = engineCfg["data_cfg"].c_str();
-	dataCfgFile = workDir / dataCfgFile;
-	std::cout << "Data configuration file: \t" << dataCfgFile << std::endl;
+	settingsCfgFile = engineCfg["settings_cfg"].c_str();
+	settingsCfgFile = workDir / settingsCfgFile;
+	std::cout << "Sample configuration file: \t" << settingsCfgFile << std::endl;
 
 	/*file with fit parameters listing*/
 	fitCfgFile = engineCfg["fit_cfg"].c_str();
@@ -152,16 +140,12 @@ void SettingsReader::readEngineConfig(const libconfig::Setting& root)
 	resultFile = engineCfg["output"].c_str();
 	resultFile = workDir / resultFile;
 	std::cout << "Output file: \t" << resultFile << std::endl;
-
-	/*how many LM itaretions to perform*/
-	nbIterations = engineCfg["nbIterations"];
-	std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
-			<< std::endl;
 }
 
-void SettingsReader::readSampleConfig(const libconfig::Setting& root)
+void SettingsReader::readSampleConfig(const libconfig::Setting& sampleCfg)
 {
-	const libconfig::Setting& sampleCfg = root["Sample"];
+	aSub = sampleCfg["aSub"];
+	std::cout << "Substrate lattice parameter: "<< aSub << std::endl;
 
 	nu = sampleCfg["nu"];
 	std::cout << "Poisson ratio : "<<nu << std::endl;
@@ -190,9 +174,27 @@ void SettingsReader::readSampleConfig(const libconfig::Setting& root)
 	std::cout << std::endl;
 }
 
-void SettingsReader::readFitParametersConfig(const libconfig::Setting& cfg)
+void SettingsReader::readFitParametersConfig(const libconfig::Setting& fitCfg)
 {
+	/*how many LM itaretions to perform*/
+	nbIterations = fitCfg["nbIterations"];
+	std::cout << "Perform  : " << nbIterations << " iterations" << std::endl
+			<< std::endl;
 
+	const libconfig::Setting& parameters = fitCfg["parameters"];
+
+	double lb, ub;
+	for(int i = 0; i < parameters.getLength(); ++i)
+	{
+		const libconfig::Setting& name = parameters[i]["name"];
+		const libconfig::Setting& boundary = parameters[i]["boundary"];
+
+		lb = boundary[0];
+		ub = boundary[1];
+
+		std::cout << "Parameter:\t" << name.c_str() << std::endl;
+		std::cout << "\t[" << lb << ":" << ub << "]" << std::endl;
+	}
 }
 
 void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
@@ -224,10 +226,8 @@ void SettingsReader::registerSampleSetting(const libconfig::Setting& stg)
 		std::cout << std::endl;
 }
 
-void SettingsReader::readDataConfig(const libconfig::Setting& root)
+void SettingsReader::readDataConfig(const libconfig::Setting& dataCfg)
 {
-	const libconfig::Setting& dataCfg = root["Data"];
-
 	background = dataCfg["background"];
 	std::cout << "Background level : "<<background<< std::endl;
 
@@ -335,13 +335,13 @@ void SettingsReader::registerDataSetting(const libconfig::Setting& reflection)
 
 bool SettingsReader::saveReflections()
 {
-	boost::filesystem::path output_file;
+	boost::filesystem::path old_config_file;
 	libconfig::Config cfg;
 
 	// Read the file. If there is an error, report it and exit.
 	try
 	{
-		cfg.readFile(dataCfgFile.c_str());
+		cfg.readFile(settingsCfgFile.c_str());
 	} catch (const libconfig::FileIOException &fioex)
 	{
 		std::cerr << "I/O error while reading file." << std::endl;
@@ -352,28 +352,37 @@ bool SettingsReader::saveReflections()
 				<< " - " << pex.getError() << std::endl;
 		return (EXIT_FAILURE);
 	}
+	// Write out the old configuration.
+	old_config_file = settingsCfgFile;
+	old_config_file.replace_extension("~cfg");
+	/*save old configuration in a file with extension ~cfg*/
+	boost::filesystem::rename(settingsCfgFile, old_config_file);
 
-	// Write out the updated configuration.
-	output_file = dataCfgFile;
-	output_file.replace_extension("~cfg");
 	try
 	{
 		//reset configuration putting the new fitted values from fitParameters
 		for(size_t i = 0; i < fitParameters.size(); ++i)
 		{
-			if(cfg.exists(allParameters.at(fitParameters.at(i).parameterIndex).m_name))
+			libconfig::Setting& stg = cfg.lookup(allParameters.at(fitParameters.at(i).parameterIndex).m_name);
+			//TODO temporary solution
+			if(stg.isList())
 			{
-				cfg.lookup(allParameters.at(fitParameters.at(i).parameterIndex).m_name) = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
+				stg[0] = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
+			}else
+			{
+				stg = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
 			}
+
+			//
 		}
 
-		cfg.writeFile(output_file.c_str());
-		std::cout << "Updated configuration successfully written to: " << output_file
+		cfg.writeFile(settingsCfgFile.c_str());
+		std::cout << "Updated configuration successfully written to: " << settingsCfgFile
 				<< std::endl;
 
 	} catch (const libconfig::FileIOException &fioex)
 	{
-		std::cerr << "I/O error while writing file: " << output_file << std::endl;
+		std::cerr << "I/O error while writing file: " << settingsCfgFile << std::endl;
 		return (EXIT_FAILURE);
 	}
 
