@@ -342,16 +342,7 @@ bool SettingsReader::saveReflections()
 		for(size_t i = 0; i < fitParameters.size(); ++i)
 		{
 			libconfig::Setting& stg = cfg.lookup(allParameters.at(fitParameters.at(i).parameterIndex).m_name);
-			//TODO temporary solution
-			if(stg.isList())
-			{
-				stg[0] = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
-			}else
-			{
-				stg = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
-			}
-
-			//
+			stg = allParameters.at(fitParameters.at(i).parameterIndex).m_value;
 		}
 
 		cfg.writeFile(settingsCfgFile.c_str());
@@ -509,7 +500,7 @@ void SettingsReader::saveFitData(const double * f, std::string suffix)
 			double nparz=reflParameters.at(dataFileProperties.at(ifile).reflIndex).nparz;
 
 			std::ofstream fout(outfile.c_str());
-			fout << "#qper\tqpar\tqx\tqz\tI_init\tI_fin" << std::endl;
+			fout << "#qper\tqpar\tqx\tqz\tI_exp\tI_fit" << std::endl;
 			for(size_t ipt=0;ipt<dataFileProperties.at(ifile).nbPoints; ipt++)
 			{
 				qx=(dataPoints.at(ipoint).qx/(2*M_PI)/*+Qx*/)/aSub;
