@@ -1,5 +1,1 @@
-*
-!.gitignore
-!src
-!test_result
-!test_scan
+build/

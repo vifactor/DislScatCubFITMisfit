@@ -15,6 +15,7 @@
 #include <map>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include <cmath>
 #include <cstdlib>
 
