@@ -22,8 +22,6 @@
 #include <libconfig.h++>
 #include <boost/filesystem.hpp>
 
-#include <StringTools.h>
-
 class SettingsReader {
 public:
 	struct Parameter

@@ -41,7 +41,6 @@ ExternalProject_Add(
 )
 
 #compile project itself
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/StringTools)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${CMAKE_BINARY_DIR}/src/config_project-build/include)
 include_directories(${CMAKE_BINARY_DIR}/src/levmar_project)
