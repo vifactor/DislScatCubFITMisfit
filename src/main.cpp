@@ -22,13 +22,11 @@ void printInfo(const double * info);
 
 int main()
 {
-	Log::ReportingLevel()=logINFO;
-	OutputTO::Stream()=stdout;
 	SettingsReader settings;
 
 	if(!settings.readSettings())
 	{
-		LOG(logINFO)<<"Exit.";
+		std::cerr << "Exit.";
 		return -1;
 	}
 
@@ -70,8 +68,7 @@ int main()
 		settings.saveFitParameters(x, covar);
 		settings.saveFitData(f, "f");
 	}
-	LOG(logRTIME);
-	LOG(logINFO) << "End.";
+	std::cout << "End.";
 	return 0;
 }
 
@@ -109,29 +106,29 @@ void printInfo(const double * info)
 	switch(int(info[6]))
 	{
 	case 1:
-		LOG(logINFO)<<"\tSmall gradient J^T f";
+		std::cout<<"\tSmall gradient J^T f";
 		break;
 	case 2:
-		LOG(logINFO)<<"Small Dp";
+		std::cout<<"Small Dp";
 		break;
 	case 3:
-		LOG(logINFO)<<"Max nb iterations";
+		std::cout<<"Max nb iterations";
 		break;
 	case 4:
-		LOG(logINFO)<<"Singular matrix";
+		std::cout<<"Singular matrix";
 		break;
 	case 5:
-		LOG(logINFO)<<"No further error reduction is possible";
+		std::cout<<"No further error reduction is possible";
 		break;
 	case 6:
-		LOG(logINFO)<<"Small ||f||^2";
+		std::cout<<"Small ||f||^2";
 		break;
 	default:
-		LOG(logERROR)<<"Invalid parameters";
+		std::cerr<<"Invalid parameters";
 		return;
 		break;
 	}
-	LOG(logINFO)<<"In "<<info[5]<<" iterations ||f||^2 reduced from "<<sqrt(info[0])<<" to "<<sqrt(info[1]);
-	LOG(logINFO)<<"Number of function evaluations:"<<info[7];
-	LOG(logINFO)<<"Number of Jacobian evaluations:"<<info[8];
+	std::cout<<"In "<<info[5]<<" iterations ||f||^2 reduced from "<<sqrt(info[0])<<" to "<<sqrt(info[1]);
+	std::cout<<"Number of function evaluations:"<<info[7];
+	std::cout<<"Number of Jacobian evaluations:"<<info[8];
 }
