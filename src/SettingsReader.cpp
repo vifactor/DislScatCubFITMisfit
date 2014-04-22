@@ -332,7 +332,7 @@ bool SettingsReader::saveReflections()
 	}
 	// Write out the old configuration.
 	old_config_file = settingsCfgFile;
-	old_config_file.replace_extension("~cfg");
+	old_config_file.replace_extension(".~cfg");
 	/*save old configuration in a file with extension ~cfg*/
 	boost::filesystem::rename(settingsCfgFile, old_config_file);
 

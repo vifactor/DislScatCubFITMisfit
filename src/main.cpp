@@ -26,7 +26,7 @@ int main()
 
 	if(!settings.readSettings())
 	{
-		std::cerr << "Exit.";
+		std::cerr << "Exit." << std::endl;
 		return -1;
 	}
 
@@ -68,7 +68,7 @@ int main()
 		settings.saveFitParameters(x, covar);
 		settings.saveFitData(f, "f");
 	}
-	std::cout << "End.";
+	std::cout << "End." << std::endl;
 	return 0;
 }
 
@@ -106,29 +106,29 @@ void printInfo(const double * info)
 	switch(int(info[6]))
 	{
 	case 1:
-		std::cout<<"\tSmall gradient J^T f";
+		std::cout<<"\tSmall gradient J^T f" << std::endl;
 		break;
 	case 2:
-		std::cout<<"Small Dp";
+		std::cout<<"Small Dp" << std::endl;
 		break;
 	case 3:
-		std::cout<<"Max nb iterations";
+		std::cout<<"Max nb iterations" << std::endl;
 		break;
 	case 4:
 		std::cout<<"Singular matrix";
 		break;
 	case 5:
-		std::cout<<"No further error reduction is possible";
+		std::cout<<"No further error reduction is possible" << std::endl;
 		break;
 	case 6:
-		std::cout<<"Small ||f||^2";
+		std::cout<<"Small ||f||^2" << std::endl;
 		break;
 	default:
-		std::cerr<<"Invalid parameters";
+		std::cerr<<"Invalid parameters" << std::endl;
 		return;
 		break;
 	}
-	std::cout<<"In "<<info[5]<<" iterations ||f||^2 reduced from "<<sqrt(info[0])<<" to "<<sqrt(info[1]);
-	std::cout<<"Number of function evaluations:"<<info[7];
-	std::cout<<"Number of Jacobian evaluations:"<<info[8];
+	std::cout<<"In "<<info[5]<<" iterations ||f||^2 reduced from "<<sqrt(info[0])<<" to "<<sqrt(info[1]) << std::endl;
+	std::cout<<"Number of function evaluations:"<<info[7] << std::endl;
+	std::cout<<"Number of Jacobian evaluations:"<<info[8] << std::endl;
 }
