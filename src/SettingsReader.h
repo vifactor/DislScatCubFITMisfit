@@ -73,7 +73,7 @@ public:
 	void initializeFitParametersBounds(double * lb, double * ub) const;
 	void resetFitParameters(const double * x);
 	void saveFitData(const double * f, std::string suffix);
-	void saveFitParameters(const double * x, const double * c);
+	void saveFitParameters(const double * x, const double * cov, const double * info);
 	const double * getCalculatorParameters(int irefl) const;
 	double getSubstrateLatticeParameter() const {return aSub;}
 	double getBackground() const {return background;}

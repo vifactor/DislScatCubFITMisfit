@@ -517,10 +517,11 @@ void SettingsReader::saveFitData(const double * f, std::string suffix)
 	}
 }
 
-void SettingsReader::saveFitParameters(const double * x, const double * c)
+void SettingsReader::saveFitParameters(const double * x, const double * c, const double * info)
 {
 	std::ofstream fout(resultFile.c_str());
 	resetFitParameters(x);
+	fout <<"#"<<info[5]<<" iterations ||f||^2 reduced from "<<sqrt(info[0])<<" to "<<sqrt(info[1]) << std::endl;
 	fout << "#iparam\tidx\tvalue+/-error" << std::endl;
 	for (size_t iparam = 0; iparam < getNbFitParameters(); iparam++)
 		fout << iparam << "\t" << fitParameters.at(iparam).parameterIndex

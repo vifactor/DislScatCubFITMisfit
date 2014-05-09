@@ -65,7 +65,7 @@ int main()
 
 		modelFunction(x, f, settings.getNbDataPoints(),
 				settings.getNbFitParameters(), &settings);
-		settings.saveFitParameters(x, covar);
+		settings.saveFitParameters(x, covar, info);
 		settings.saveFitData(f, "f");
 	}
 	std::cout << "End." << std::endl;
