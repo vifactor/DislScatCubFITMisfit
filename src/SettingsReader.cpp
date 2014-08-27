@@ -195,7 +195,7 @@ void SettingsReader::readFitParametersConfig(const libconfig::Setting& fitCfg)
 		std::cout << "\t" << name.c_str() << "\t"
 				<< allParameters.at(fitParameters.at(i).parameterIndex).m_value
 				<< "\t[" << fitParameter.lowValue << ":"
-				<< fitParameter.lowValue << "]" << std::endl;
+				<< fitParameter.upValue << "]" << std::endl;
 	}
 }
 
